@@ -7,6 +7,7 @@ import { PontoActions } from "@/components/PontoActions";
 import { StatusCard } from "@/components/StatusCard";
 import { HistoricoCard } from "@/components/HistoricoCard";
 import { Header } from "@/components/Header";
+import { RelatorioExport } from "@/components/RelatorioExport";
 
 type Ponto = {
   id: string;
@@ -120,10 +121,16 @@ const Painel = () => {
         </div>
 
         <div className="grid gap-6 lg:grid-cols-2">
-          <PontoActions
-            pontos={pontos}
-            onRegistrar={handleRegistrarPonto}
-          />
+          <div className="space-y-6">
+            <PontoActions
+              pontos={pontos}
+              onRegistrar={handleRegistrarPonto}
+            />
+            <RelatorioExport 
+              pontos={pontos} 
+              userName={user?.email || "Usuário"} 
+            />
+          </div>
           <HistoricoCard pontos={pontos} />
         </div>
       </main>
