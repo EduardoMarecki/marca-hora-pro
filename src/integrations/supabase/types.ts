@@ -14,7 +14,74 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      pontos: {
+        Row: {
+          criado_em: string | null
+          horario: string
+          id: string
+          localizacao: string | null
+          tipo: string
+          user_id: string
+        }
+        Insert: {
+          criado_em?: string | null
+          horario?: string
+          id?: string
+          localizacao?: string | null
+          tipo: string
+          user_id: string
+        }
+        Update: {
+          criado_em?: string | null
+          horario?: string
+          id?: string
+          localizacao?: string | null
+          tipo?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pontos_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      profiles: {
+        Row: {
+          cargo: string | null
+          criado_em: string | null
+          email: string
+          foto_url: string | null
+          id: string
+          jornada_padrao: string | null
+          nome: string
+          tipo_jornada: string | null
+        }
+        Insert: {
+          cargo?: string | null
+          criado_em?: string | null
+          email: string
+          foto_url?: string | null
+          id: string
+          jornada_padrao?: string | null
+          nome: string
+          tipo_jornada?: string | null
+        }
+        Update: {
+          cargo?: string | null
+          criado_em?: string | null
+          email?: string
+          foto_url?: string | null
+          id?: string
+          jornada_padrao?: string | null
+          nome?: string
+          tipo_jornada?: string | null
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
