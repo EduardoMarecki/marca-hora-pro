@@ -131,7 +131,11 @@ const Painel = () => {
               userName={user?.email || "Usuário"} 
             />
           </div>
-          <HistoricoCard pontos={pontos} />
+          <HistoricoCard 
+            pontos={pontos} 
+            userEmail={user?.email || ""} 
+            onUpdate={loadPontos}
+          />
         </div>
       </main>
     </div>
