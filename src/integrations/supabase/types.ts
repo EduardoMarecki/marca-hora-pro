@@ -19,6 +19,89 @@ export type Database = {
           criado_em: string | null
           horario: string
           id: string
+          justificativa_ajuste: string | null
+          localizacao: string | null
+          tipo: string
+          user_id: string
+        }
+        Insert: {
+          criado_em?: string | null
+          horario?: string
+          id?: string
+          justificativa_ajuste?: string | null
+          localizacao?: string | null
+          tipo: string
+          user_id: string
+        }
+        Update: {
+          criado_em?: string | null
+          horario?: string
+          id?: string
+          justificativa_ajuste?: string | null
+          localizacao?: string | null
+          tipo?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pontos_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      profiles: {
+        Row: {
+          cargo: string | null
+          criado_em: string | null
+          email: string
+          foto_url: string | null
+          horario_entrada: string | null
+          horario_saida_almoco: string | null
+          horario_saida_final: string | null
+          horario_volta_almoco: string | null
+          id: string
+          jornada_padrao: string | null
+          nome: string
+          tipo_jornada: string | null
+        }
+        Insert: {
+          cargo?: string | null
+          criado_em?: string | null
+          email: string
+          foto_url?: string | null
+          horario_entrada?: string | null
+          horario_saida_almoco?: string | null
+          horario_saida_final?: string | null
+          horario_volta_almoco?: string | null
+          id: string
+          jornada_padrao?: string | null
+          nome: string
+          tipo_jornada?: string | null
+        }
+        Update: {
+          cargo?: string | null
+          criado_em?: string | null
+          email?: string
+          foto_url?: string | null
+          horario_entrada?: string | null
+          horario_saida_almoco?: string | null
+          horario_saida_final?: string | null
+          horario_volta_almoco?: string | null
+          id?: string
+          jornada_padrao?: string | null
+          nome?: string
+          tipo_jornada?: string | null
+        }
+        Relationships: []
+      }
+      public_pontos: {
+        Row: {
+          criado_em: string | null
+          horario: string
+          id: string
           localizacao: string | null
           tipo: string
           user_id: string
@@ -41,15 +124,15 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: "pontos_user_id_fkey"
+            foreignKeyName: "public_pontos_user_id_fkey"
             columns: ["user_id"]
             isOneToOne: false
-            referencedRelation: "profiles"
+            referencedRelation: "public_profiles"
             referencedColumns: ["id"]
           },
         ]
       }
-      profiles: {
+      public_profiles: {
         Row: {
           cargo: string | null
           criado_em: string | null
