@@ -1,1 +1,4 @@
 project_id = "rxbnmitkcbgpkgdwlvyk"
+
+[functions.analisar-pontos]
+verify_jwt = true

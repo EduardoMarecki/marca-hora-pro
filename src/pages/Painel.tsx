@@ -8,6 +8,8 @@ import { StatusCard } from "@/components/StatusCard";
 import { HistoricoCard } from "@/components/HistoricoCard";
 import { Header } from "@/components/Header";
 import { RelatorioExport } from "@/components/RelatorioExport";
+import { AlertasAutomaticos } from "@/components/AlertasAutomaticos";
+import { AnaliseInteligente } from "@/components/AnaliseInteligente";
 
 type Ponto = {
   id: string;
@@ -118,9 +120,10 @@ const Painel = () => {
       <main className="container mx-auto px-4 py-8 max-w-6xl">
         <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3 mb-8">
           <StatusCard pontos={pontos} />
+          <AlertasAutomaticos pontos={pontos} />
         </div>
 
-        <div className="grid gap-6 lg:grid-cols-2">
+        <div className="grid gap-6 lg:grid-cols-2 mb-8">
           <div className="space-y-6">
             <PontoActions
               pontos={pontos}
@@ -137,6 +140,8 @@ const Painel = () => {
             onUpdate={loadPontos}
           />
         </div>
+
+        <AnaliseInteligente />
       </main>
     </div>
   );
