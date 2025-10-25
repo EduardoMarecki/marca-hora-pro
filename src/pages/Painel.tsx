@@ -131,7 +131,8 @@ const Painel = () => {
             />
             <RelatorioExport 
               pontos={pontos} 
-              userName={user?.email || "Usuário"} 
+              userName={user?.email || "Usuário"}
+              userId={user?.id || ""}
             />
           </div>
           <HistoricoCard 

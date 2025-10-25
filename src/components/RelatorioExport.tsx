@@ -5,6 +5,8 @@ import jsPDF from "jspdf";
 import * as XLSX from "xlsx";
 import { format, startOfWeek, endOfWeek, startOfMonth, endOfMonth } from "date-fns";
 import { ptBR } from "date-fns/locale";
+import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
 
 type Ponto = {
   id: string;
@@ -16,14 +18,31 @@ type Ponto = {
 type RelatorioExportProps = {
   pontos: Ponto[];
   userName: string;
+  userId: string;
 };
 
-export const RelatorioExport = ({ pontos, userName }: RelatorioExportProps) => {
-  const calculateTotals = (startDate: Date, endDate: Date) => {
-    const filteredPontos = pontos.filter((p) => {
-      const pontoDate = new Date(p.horario);
-      return pontoDate >= startDate && pontoDate <= endDate;
-    });
+export const RelatorioExport = ({ pontos, userName, userId }: RelatorioExportProps) => {
+  const loadPontosForPeriod = async (startDate: Date, endDate: Date) => {
+    try {
+      const { data, error } = await supabase
+        .from("pontos")
+        .select("*")
+        .eq("user_id", userId)
+        .gte("horario", startDate.toISOString())
+        .lte("horario", endDate.toISOString())
+        .order("horario", { ascending: true });
+
+      if (error) throw error;
+      return data || [];
+    } catch (error) {
+      console.error("Erro ao carregar pontos:", error);
+      toast.error("Erro ao carregar dados para exportação");
+      return [];
+    }
+  };
+
+  const calculateTotals = async (startDate: Date, endDate: Date) => {
+    const filteredPontos = await loadPontosForPeriod(startDate, endDate);
 
     // Agrupar por dia
     const pontosPorDia = filteredPontos.reduce((acc, ponto) => {
@@ -70,12 +89,18 @@ export const RelatorioExport = ({ pontos, userName }: RelatorioExportProps) => {
     return relatorio;
   };
 
-  const exportToPDF = (periodo: "semana" | "mes") => {
+  const exportToPDF = async (periodo: "semana" | "mes") => {
     const today = new Date();
     const startDate = periodo === "semana" ? startOfWeek(today, { locale: ptBR }) : startOfMonth(today);
     const endDate = periodo === "semana" ? endOfWeek(today, { locale: ptBR }) : endOfMonth(today);
     
-    const dados = calculateTotals(startDate, endDate);
+    const dados = await calculateTotals(startDate, endDate);
+    
+    if (dados.length === 0) {
+      toast.error("Nenhum registro encontrado para o período selecionado");
+      return;
+    }
+    
     const totalGeral = dados.reduce((sum, d) => sum + parseFloat(d.totalHoras), 0);
 
     const doc = new jsPDF();
@@ -119,12 +144,18 @@ export const RelatorioExport = ({ pontos, userName }: RelatorioExportProps) => {
     doc.save(`relatorio_ponto_${periodo}_${format(today, "yyyy-MM-dd")}.pdf`);
   };
 
-  const exportToExcel = (periodo: "semana" | "mes") => {
+  const exportToExcel = async (periodo: "semana" | "mes") => {
     const today = new Date();
     const startDate = periodo === "semana" ? startOfWeek(today, { locale: ptBR }) : startOfMonth(today);
     const endDate = periodo === "semana" ? endOfWeek(today, { locale: ptBR }) : endOfMonth(today);
     
-    const dados = calculateTotals(startDate, endDate);
+    const dados = await calculateTotals(startDate, endDate);
+    
+    if (dados.length === 0) {
+      toast.error("Nenhum registro encontrado para o período selecionado");
+      return;
+    }
+    
     const totalGeral = dados.reduce((sum, d) => sum + parseFloat(d.totalHoras), 0);
 
     const worksheet = XLSX.utils.json_to_sheet([
