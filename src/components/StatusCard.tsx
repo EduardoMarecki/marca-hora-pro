@@ -53,7 +53,7 @@ export const StatusCard = ({ pontos }: StatusCardProps) => {
         const now = new Date();
         const diff = Math.floor((now.getTime() - start.getTime()) / 1000);
 
-        // Subtract pause time
+        // Subtract pause time (including lunch breaks)
         const pausas = pontos.filter(p => p.tipo === "pausa_inicio" || p.tipo === "pausa_fim");
         let pauseTime = 0;
         
@@ -78,9 +78,22 @@ export const StatusCard = ({ pontos }: StatusCardProps) => {
         const end = new Date(saida.horario);
         const diff = Math.floor((end.getTime() - start.getTime()) / 1000);
 
-        const hours = Math.floor(diff / 3600);
-        const minutes = Math.floor((diff % 3600) / 60);
-        const seconds = diff % 60;
+        // Subtract pause time from completed day
+        const pausas = pontos.filter(p => p.tipo === "pausa_inicio" || p.tipo === "pausa_fim");
+        let pauseTime = 0;
+        
+        for (let i = 0; i < pausas.length; i += 2) {
+          if (pausas[i] && pausas[i + 1] && pausas[i].tipo === "pausa_inicio" && pausas[i + 1].tipo === "pausa_fim") {
+            const pauseStart = new Date(pausas[i].horario);
+            const pauseEnd = new Date(pausas[i + 1].horario);
+            pauseTime += Math.floor((pauseEnd.getTime() - pauseStart.getTime()) / 1000);
+          }
+        }
+
+        const totalSeconds = Math.max(0, diff - pauseTime);
+        const hours = Math.floor(totalSeconds / 3600);
+        const minutes = Math.floor((totalSeconds % 3600) / 60);
+        const seconds = totalSeconds % 60;
 
         setElapsedTime(
           `${String(hours).padStart(2, "0")}:${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`

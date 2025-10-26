@@ -10,6 +10,7 @@ import { Header } from "@/components/Header";
 import { RelatorioExport } from "@/components/RelatorioExport";
 import { AlertasAutomaticos } from "@/components/AlertasAutomaticos";
 import { AnaliseInteligente } from "@/components/AnaliseInteligente";
+import { RelatoriosGraficos } from "@/components/RelatoriosGraficos";
 
 type Ponto = {
   id: string;
@@ -143,6 +144,10 @@ const Painel = () => {
         </div>
 
         <AnaliseInteligente />
+
+        <div className="mt-4 sm:mt-8">
+          <RelatoriosGraficos userId={user?.id || ""} />
+        </div>
       </main>
     </div>
   );
