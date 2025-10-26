@@ -182,49 +182,49 @@ export const RelatorioExport = ({ pontos, userName, userId }: RelatorioExportPro
 
   return (
     <Card className="bg-gradient-card shadow-md">
-      <CardHeader>
-        <CardTitle className="text-lg">Exportar Relatório</CardTitle>
+      <CardHeader className="pb-3 sm:pb-6">
+        <CardTitle className="text-base sm:text-lg">Exportar Relatório</CardTitle>
       </CardHeader>
-      <CardContent className="space-y-4">
+      <CardContent className="space-y-3 sm:space-y-4">
         <div className="space-y-2">
-          <p className="text-sm text-muted-foreground">Relatório Semanal</p>
+          <p className="text-xs sm:text-sm text-muted-foreground">Relatório Semanal</p>
           <div className="flex gap-2">
             <Button
               onClick={() => exportToPDF("semana")}
               variant="outline"
-              className="flex-1"
+              className="flex-1 h-9 sm:h-10 text-xs sm:text-sm"
             >
-              <FileDown className="h-4 w-4 mr-2" />
+              <FileDown className="h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-2" />
               PDF
             </Button>
             <Button
               onClick={() => exportToExcel("semana")}
               variant="outline"
-              className="flex-1"
+              className="flex-1 h-9 sm:h-10 text-xs sm:text-sm"
             >
-              <FileSpreadsheet className="h-4 w-4 mr-2" />
+              <FileSpreadsheet className="h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-2" />
               Excel
             </Button>
           </div>
         </div>
-
+        
         <div className="space-y-2">
-          <p className="text-sm text-muted-foreground">Relatório Mensal</p>
+          <p className="text-xs sm:text-sm text-muted-foreground">Relatório Mensal</p>
           <div className="flex gap-2">
             <Button
               onClick={() => exportToPDF("mes")}
               variant="outline"
-              className="flex-1"
+              className="flex-1 h-9 sm:h-10 text-xs sm:text-sm"
             >
-              <FileDown className="h-4 w-4 mr-2" />
+              <FileDown className="h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-2" />
               PDF
             </Button>
             <Button
               onClick={() => exportToExcel("mes")}
               variant="outline"
-              className="flex-1"
+              className="flex-1 h-9 sm:h-10 text-xs sm:text-sm"
             >
-              <FileSpreadsheet className="h-4 w-4 mr-2" />
+              <FileSpreadsheet className="h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-2" />
               Excel
             </Button>
           </div>

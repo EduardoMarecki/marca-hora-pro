@@ -56,31 +56,31 @@ export const HistoricoCard = ({ pontos, userEmail, onUpdate }: HistoricoCardProp
   return (
     <>
       <Card className="shadow-md">
-        <CardHeader>
-          <CardTitle>Histórico do Dia</CardTitle>
-          <CardDescription>
+        <CardHeader className="pb-3 sm:pb-6">
+          <CardTitle className="text-base sm:text-lg">Histórico do Dia</CardTitle>
+          <CardDescription className="text-xs sm:text-sm">
             Seus registros de ponto de hoje
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <ScrollArea className="h-[300px] pr-4">
+          <ScrollArea className="h-[250px] sm:h-[300px] pr-2 sm:pr-4">
             {pontos.length === 0 ? (
-              <div className="flex flex-col items-center justify-center h-full text-center py-8">
-                <Clock className="h-12 w-12 text-muted-foreground mb-3 opacity-50" />
-                <p className="text-sm text-muted-foreground">
+              <div className="flex flex-col items-center justify-center h-full text-center py-6 sm:py-8">
+                <Clock className="h-10 w-10 sm:h-12 sm:w-12 text-muted-foreground mb-2 sm:mb-3 opacity-50" />
+                <p className="text-xs sm:text-sm text-muted-foreground">
                   Nenhum registro hoje
                 </p>
               </div>
             ) : (
-              <div className="space-y-3">
+              <div className="space-y-2 sm:space-y-3">
                 {pontos.map((ponto) => (
                   <div
                     key={ponto.id}
-                    className="flex items-center justify-between p-3 rounded-lg border bg-card hover:bg-accent/5 transition-colors"
+                    className="flex items-center justify-between p-2 sm:p-3 rounded-lg border bg-card hover:bg-accent/5 transition-colors"
                   >
-                    <div className="flex items-center gap-3">
-                      <div className="flex flex-col">
-                        <span className="text-sm font-medium">
+                    <div className="flex items-center gap-2 sm:gap-3 min-w-0">
+                      <div className="flex flex-col min-w-0">
+                        <span className="text-xs sm:text-sm font-medium truncate">
                           {getTipoLabel(ponto.tipo)}
                         </span>
                         <span className="text-xs text-muted-foreground">
@@ -88,17 +88,17 @@ export const HistoricoCard = ({ pontos, userEmail, onUpdate }: HistoricoCardProp
                         </span>
                       </div>
                     </div>
-                    <div className="flex items-center gap-2">
-                      <Badge variant={getTipoVariant(ponto.tipo) as any}>
+                    <div className="flex items-center gap-1 sm:gap-2 flex-shrink-0">
+                      <Badge variant={getTipoVariant(ponto.tipo) as any} className="text-xs">
                         {format(new Date(ponto.horario), "HH:mm", { locale: ptBR })}
                       </Badge>
                       <Button
                         size="icon"
                         variant="ghost"
                         onClick={() => setEditingPonto(ponto)}
-                        className="h-8 w-8"
+                        className="h-7 w-7 sm:h-8 sm:w-8"
                       >
-                        <Pencil className="h-4 w-4" />
+                        <Pencil className="h-3 w-3 sm:h-4 sm:w-4" />
                       </Button>
                     </div>
                   </div>

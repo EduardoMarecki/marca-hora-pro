@@ -117,14 +117,14 @@ const Painel = () => {
     <div className="min-h-screen bg-gradient-to-br from-background via-secondary to-muted">
       <Header user={user} onLogout={handleLogout} />
 
-      <main className="container mx-auto px-4 py-8 max-w-6xl">
-        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3 mb-8">
+      <main className="container mx-auto px-3 sm:px-4 py-4 sm:py-8 max-w-6xl">
+        <div className="grid gap-4 sm:gap-6 lg:grid-cols-3 mb-4 sm:mb-8">
           <StatusCard pontos={pontos} />
           <AlertasAutomaticos pontos={pontos} />
         </div>
 
-        <div className="grid gap-6 lg:grid-cols-2 mb-8">
-          <div className="space-y-6">
+        <div className="grid gap-4 sm:gap-6 lg:grid-cols-2 mb-4 sm:mb-8">
+          <div className="space-y-4 sm:space-y-6">
             <PontoActions
               pontos={pontos}
               onRegistrar={handleRegistrarPonto}

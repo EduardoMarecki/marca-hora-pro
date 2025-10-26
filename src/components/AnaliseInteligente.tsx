@@ -35,38 +35,38 @@ export const AnaliseInteligente = () => {
 
   return (
     <Card>
-      <CardHeader>
-        <CardTitle className="flex items-center gap-2">
-          <Brain className="h-5 w-5 text-primary" />
+      <CardHeader className="pb-3 sm:pb-6">
+        <CardTitle className="flex items-center gap-2 text-base sm:text-lg">
+          <Brain className="h-4 w-4 sm:h-5 sm:w-5 text-primary" />
           Análise Inteligente com IA
         </CardTitle>
-        <CardDescription>
+        <CardDescription className="text-xs sm:text-sm">
           Obtenha insights sobre seus padrões de trabalho e sugestões personalizadas
         </CardDescription>
       </CardHeader>
-      <CardContent className="space-y-4">
+      <CardContent className="space-y-3 sm:space-y-4">
         <Button 
           onClick={realizarAnalise} 
           disabled={isLoading}
-          className="w-full"
+          className="w-full h-10 sm:h-11 text-sm sm:text-base"
         >
           {isLoading ? (
             <>
-              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              <Loader2 className="mr-2 h-3 w-3 sm:h-4 sm:w-4 animate-spin" />
               Analisando...
             </>
           ) : (
             <>
-              <Brain className="mr-2 h-4 w-4" />
+              <Brain className="mr-2 h-3 w-3 sm:h-4 sm:w-4" />
               Realizar Análise
             </>
           )}
         </Button>
 
         {analise && (
-          <div className="rounded-lg bg-muted p-4 space-y-2">
-            <h4 className="font-semibold text-sm">Resultado da Análise:</h4>
-            <div className="text-sm whitespace-pre-wrap">{analise}</div>
+          <div className="rounded-lg bg-muted p-3 sm:p-4 space-y-2">
+            <h4 className="font-semibold text-xs sm:text-sm">Resultado da Análise:</h4>
+            <div className="text-xs sm:text-sm whitespace-pre-wrap">{analise}</div>
           </div>
         )}
       </CardContent>

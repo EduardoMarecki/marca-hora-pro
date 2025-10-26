@@ -125,18 +125,18 @@ export const StatusCard = ({ pontos }: StatusCardProps) => {
   };
 
   return (
-    <Card className="md:col-span-2 lg:col-span-3 bg-gradient-card shadow-md">
-      <CardHeader className="pb-3">
-        <div className="flex items-center justify-between">
-          <CardTitle className="text-lg">Status Atual</CardTitle>
+    <Card className="lg:col-span-2 bg-gradient-card shadow-md">
+      <CardHeader className="pb-2 sm:pb-3">
+        <div className="flex items-center justify-between gap-2">
+          <CardTitle className="text-base sm:text-lg">Status Atual</CardTitle>
           {getStatusBadge()}
         </div>
       </CardHeader>
       <CardContent>
-        <div className="flex items-center justify-center py-8">
+        <div className="flex items-center justify-center py-4 sm:py-8">
           <div className="text-center">
-            <p className="text-sm text-muted-foreground mb-2">Tempo Trabalhado Hoje</p>
-            <p className="text-5xl font-bold tabular-nums tracking-tight text-primary">
+            <p className="text-xs sm:text-sm text-muted-foreground mb-2">Tempo Trabalhado Hoje</p>
+            <p className="text-3xl sm:text-4xl md:text-5xl font-bold tabular-nums tracking-tight text-primary">
               {elapsedTime}
             </p>
           </div>

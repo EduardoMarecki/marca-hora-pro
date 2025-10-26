@@ -86,14 +86,14 @@ export const AlertasAutomaticos = ({ pontos }: AlertasAutomaticosProps) => {
   if (alertas.length === 0) {
     return (
       <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <CheckCircle className="h-5 w-5 text-green-500" />
+        <CardHeader className="pb-3 sm:pb-6">
+          <CardTitle className="flex items-center gap-2 text-base sm:text-lg">
+            <CheckCircle className="h-4 w-4 sm:h-5 sm:w-5 text-green-500" />
             Alertas
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <p className="text-sm text-muted-foreground">Tudo certo! Sem alertas no momento.</p>
+          <p className="text-xs sm:text-sm text-muted-foreground">Tudo certo! Sem alertas no momento.</p>
         </CardContent>
       </Card>
     );
@@ -101,18 +101,18 @@ export const AlertasAutomaticos = ({ pontos }: AlertasAutomaticosProps) => {
 
   return (
     <Card>
-      <CardHeader>
-        <CardTitle className="flex items-center gap-2">
-          <AlertCircle className="h-5 w-5 text-orange-500" />
+      <CardHeader className="pb-3 sm:pb-6">
+        <CardTitle className="flex items-center gap-2 text-base sm:text-lg">
+          <AlertCircle className="h-4 w-4 sm:h-5 sm:w-5 text-orange-500" />
           Alertas
         </CardTitle>
       </CardHeader>
-      <CardContent className="space-y-3">
+      <CardContent className="space-y-2 sm:space-y-3">
         {alertas.map((alerta, index) => (
-          <Alert key={index} variant="destructive">
-            <AlertCircle className="h-4 w-4" />
-            <AlertTitle>Atenção</AlertTitle>
-            <AlertDescription>{alerta}</AlertDescription>
+          <Alert key={index} variant="destructive" className="py-2 sm:py-3">
+            <AlertCircle className="h-3 w-3 sm:h-4 sm:w-4" />
+            <AlertTitle className="text-xs sm:text-sm">Atenção</AlertTitle>
+            <AlertDescription className="text-xs sm:text-sm">{alerta}</AlertDescription>
           </Alert>
         ))}
       </CardContent>
