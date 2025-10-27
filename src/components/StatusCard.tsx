@@ -3,6 +3,7 @@ import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { Clock, PlayCircle, PauseCircle, CheckCircle, Timer } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
+import { supabase } from "@/integrations/supabase/client";
 
 type Ponto = {
   id: string;
@@ -17,8 +18,51 @@ type StatusCardProps = {
 export const StatusCard = ({ pontos }: StatusCardProps) => {
   const [elapsedTime, setElapsedTime] = useState<string>("00:00:00");
   const [status, setStatus] = useState<"aguardando" | "trabalhando" | "pausa" | "finalizado">("aguardando");
-  const DEFAULT_DAILY_WORK_SECONDS = 8 * 60 * 60; // 8h de trabalho líquido
-  const DEFAULT_PAUSE_SECONDS = 60 * 60; // 1h de almoço/pausa padrão
+  const [dailyNetSeconds, setDailyNetSeconds] = useState<number>(8 * 60 * 60); // padrão 8h
+  const [pauseDefaultSeconds, setPauseDefaultSeconds] = useState<number>(60 * 60); // padrão 1h
+
+  // Carregar jornada do perfil (horario_entrada, jornada_padrao) e derivar jornada líquida
+  useEffect(() => {
+    const loadProfileConfig = async () => {
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user?.id) return;
+
+        const { data: profile, error } = await supabase
+          .from("profiles")
+          .select("horario_entrada, jornada_padrao")
+          .eq("id", user.id)
+          .single();
+
+        if (error) return; // manter padrões em caso de erro
+
+        // jornada_padrao esperado no formato HH:mm-HH:mm (ex.: 08:00-17:00)
+        const jp = (profile?.jornada_padrao as string | null) || null;
+        if (jp && jp.includes("-")) {
+          const [ini, fim] = jp.split("-");
+          const [ih, im] = ini.split(":").map(Number);
+          const [fh, fm] = fim.split(":").map(Number);
+          const startSec = ih * 3600 + im * 60;
+          const endSec = fh * 3600 + fm * 60;
+          let gross = endSec - startSec;
+          if (gross <= 0) gross += 24 * 3600; // atravessando meia-noite
+          // Assumir 1h de pausa padrão se nada definido explicitamente
+          const assumedPause = 60 * 60;
+          const net = Math.max(0, gross - assumedPause);
+          setDailyNetSeconds(net);
+          setPauseDefaultSeconds(assumedPause);
+        } else {
+          // fallback para 8h e 1h de pausa
+          setDailyNetSeconds(8 * 3600);
+          setPauseDefaultSeconds(60 * 60);
+        }
+      } catch {
+        // manter padrões em caso de falha
+      }
+    };
+
+    loadProfileConfig();
+  }, []);
 
   const { entrada, saida, pausas } = useMemo(() => {
     // Encontrar eventos do dia e ordenar por horário ASC para cálculos corretos
@@ -158,20 +202,20 @@ export const StatusCard = ({ pontos }: StatusCardProps) => {
     let predictedPauseEnd: Date | null = null;
     let remainingPauseSeconds = 0;
     if (status === "pausa" && lastPauseStart) {
-      predictedPauseEnd = new Date(lastPauseStart.getTime() + DEFAULT_PAUSE_SECONDS * 1000);
+      predictedPauseEnd = new Date(lastPauseStart.getTime() + pauseDefaultSeconds * 1000);
       const elapsedPause = Math.max(0, Math.floor((now.getTime() - lastPauseStart.getTime()) / 1000));
-      remainingPauseSeconds = Math.max(0, DEFAULT_PAUSE_SECONDS - elapsedPause);
+      remainingPauseSeconds = Math.max(0, pauseDefaultSeconds - elapsedPause);
     }
 
-    // Jornada alvo (8h líquidas por padrão)
-    const remainingWorkSeconds = Math.max(0, DEFAULT_DAILY_WORK_SECONDS - workedSeconds);
+    // Jornada alvo (derivada do profile ou 8h padrão)
+    const remainingWorkSeconds = Math.max(0, dailyNetSeconds - workedSeconds);
 
     // Previsão de saída = agora + restante de trabalho + (restante da pausa, se estiver em pausa)
     const totalRemaining = remainingWorkSeconds + (status === "pausa" ? remainingPauseSeconds : 0);
     const predictedExit = totalRemaining > 0 ? new Date(now.getTime() + totalRemaining * 1000) : now;
 
     return { predictedPauseEnd, predictedExit, remainingWorkSeconds };
-  }, [entrada, saida, pausas, status]);
+  }, [entrada, saida, pausas, status, dailyNetSeconds, pauseDefaultSeconds]);
 
   const formatTime = (date: Date | null) => {
     if (!date) return "-";
