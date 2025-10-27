@@ -71,3 +71,11 @@ Yes, you can!
 To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
 
 Read more here: [Setting up a custom domain](https://docs.lovable.dev/features/custom-domain#custom-domain)
+
+## Nota de sincronização (Lovable)
+
+Este projeto está configurado com sincronização em 2 vias (2-Way Sync) com o Lovable.
+
+- Alterações enviadas para a branch `main` no GitHub aparecem no Lovable automaticamente.
+- Alterações feitas no Lovable são commitadas de volta para o GitHub.
+- Segredos e variáveis (.env) não são sincronizados; mantenha-os configurados localmente e na plataforma conforme necessário.
