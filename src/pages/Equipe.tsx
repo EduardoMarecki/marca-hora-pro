@@ -57,16 +57,22 @@ const Equipe = () => {
   }, [navigate]);
 
   useEffect(() => {
-    // Só verificar acesso quando o loading terminar
-    if (!roleLoading && user) {
-      console.log("Verificando acesso admin:", { isAdmin, roleLoading });
-      if (!isAdmin) {
-        toast.error("Acesso restrito a administradores");
-        navigate("/painel");
-        return;
-      }
-      loadEquipe();
+    if (!user) return;
+    
+    // Aguardar o loading terminar
+    if (roleLoading) return;
+    
+    // Só redirecionar se confirmado que NÃO é admin
+    if (!isAdmin) {
+      console.log("Usuário não é admin, redirecionando");
+      toast.error("Acesso restrito a administradores");
+      navigate("/painel");
+      return;
     }
+    
+    // Se chegou aqui, é admin confirmado
+    console.log("Usuário confirmado como admin, carregando equipe");
+    loadEquipe();
   }, [user, isAdmin, roleLoading, navigate]);
 
   const loadEquipe = async () => {
