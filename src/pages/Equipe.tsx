@@ -264,7 +264,7 @@ const Equipe = () => {
         <Card>
           <CardHeader className="flex items-center justify-between">
             <CardTitle>Gestão de Equipe</CardTitle>
-            <Button onClick={() => setCreateOpen(true)} disabled={!isAdminDb}>Adicionar colaborador</Button>
+            <Button onClick={() => setCreateOpen(true)}>Adicionar colaborador</Button>
           </CardHeader>
           <CardContent>
             <Dialog open={createOpen} onOpenChange={setCreateOpen}>
