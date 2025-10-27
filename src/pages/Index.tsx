@@ -33,13 +33,6 @@ const Index = () => {
         </div>
       </header>
 
-      {/* Banner de sincronização (temporário para validação) */}
-      <div className="container mx-auto px-4 mt-2">
-        <div className="mb-4 rounded-lg border border-green-300 bg-green-50 text-green-700 p-3 text-sm">
-          <span className="font-medium">Sync ativo:</span> alterações enviadas para a branch <code>main</code> no GitHub são refletidas no Lovable, e mudanças feitas no Lovable retornam ao Git.
-        </div>
-      </div>
-
       <main className="container mx-auto px-4">
         <section className="py-20 text-center max-w-4xl mx-auto">
           <div className="mb-8">
