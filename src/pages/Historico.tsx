@@ -13,6 +13,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
+import { Switch } from "@/components/ui/switch";
 
 type Ponto = {
   id: string;
@@ -38,6 +39,7 @@ const Historico = () => {
   const [dataFim, setDataFim] = useState("");
   const [tipoFiltro, setTipoFiltro] = useState("todos");
   const [searchTerm, setSearchTerm] = useState("");
+  const [mostrarTodos, setMostrarTodos] = useState(false);
 
   const { isAdmin } = useUserRole(user);
 
@@ -65,11 +67,11 @@ const Historico = () => {
     if (user) {
       loadPontos();
     }
-  }, [user, isAdmin]);
+  }, [user, isAdmin, mostrarTodos]);
 
   useEffect(() => {
     applyFilters();
-  }, [pontos, dataInicio, dataFim, tipoFiltro, searchTerm]);
+  }, [pontos, dataInicio, dataFim, tipoFiltro, searchTerm, mostrarTodos]);
 
   const loadPontos = async () => {
     if (!user) return;
@@ -86,7 +88,9 @@ const Historico = () => {
         `)
         .order("horario", { ascending: false });
 
-      if (!isAdmin) {
+      // Por padrão, mesmo admin vê apenas os próprios registros.
+      // Só quando "mostrarTodos" estiver ativo é que buscamos todos.
+      if (!(isAdmin && mostrarTodos)) {
         query = query.eq("user_id", user.id);
       }
 
@@ -120,8 +124,8 @@ const Historico = () => {
       filtered = filtered.filter((p) => p.tipo === tipoFiltro);
     }
 
-    // Busca por nome/email
-    if (searchTerm && isAdmin) {
+    // Busca por nome/email (apenas quando mostrando todos)
+    if (searchTerm && isAdmin && mostrarTodos) {
       const term = searchTerm.toLowerCase();
       filtered = filtered.filter(
         (p) =>
@@ -179,7 +183,7 @@ const Historico = () => {
             <CardTitle>Histórico de Registros</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4 mb-6">
+            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-5 mb-6">
               <div>
                 <Label htmlFor="dataInicio">Data Início</Label>
                 <Input
@@ -214,6 +218,21 @@ const Historico = () => {
                 </Select>
               </div>
               {isAdmin && (
+                <div className="flex items-center gap-3 pt-6">
+                  <Switch
+                    id="mostrarTodos"
+                    checked={mostrarTodos}
+                    onCheckedChange={(v) => {
+                      setMostrarTodos(!!v);
+                      if (!v) setSearchTerm("");
+                    }}
+                  />
+                  <Label htmlFor="mostrarTodos" className="cursor-pointer">
+                    Mostrar todos
+                  </Label>
+                </div>
+              )}
+              {isAdmin && mostrarTodos && (
                 <div>
                   <Label htmlFor="search">Buscar Usuário</Label>
                   <Input
