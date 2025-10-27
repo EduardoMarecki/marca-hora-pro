@@ -46,6 +46,7 @@ const Equipe = () => {
   const [novoCargo, setNovoCargo] = useState("");
   const [novaEmpresaId, setNovaEmpresaId] = useState<string>("");
   const [creating, setCreating] = useState(false);
+  const [isAdminDb, setIsAdminDb] = useState<boolean>(false);
 
   const { isAdmin, isLoading: roleLoading } = useUserRole(user);
 
@@ -84,6 +85,7 @@ const Equipe = () => {
         
         const isUserAdmin = !!roleData;
         console.log("Verificação direta admin:", isUserAdmin);
+        setIsAdminDb(isUserAdmin);
         
         if (!isUserAdmin) {
           toast.error("Acesso restrito a administradores");
@@ -262,7 +264,7 @@ const Equipe = () => {
         <Card>
           <CardHeader className="flex items-center justify-between">
             <CardTitle>Gestão de Equipe</CardTitle>
-            <Button onClick={() => setCreateOpen(true)} disabled={!isAdmin}>Adicionar colaborador</Button>
+            <Button onClick={() => setCreateOpen(true)} disabled={!isAdminDb}>Adicionar colaborador</Button>
           </CardHeader>
           <CardContent>
             <Dialog open={createOpen} onOpenChange={setCreateOpen}>
