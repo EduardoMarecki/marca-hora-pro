@@ -21,9 +21,11 @@ export const StatusCard = ({ pontos }: StatusCardProps) => {
   const DEFAULT_PAUSE_SECONDS = 60 * 60; // 1h de almoço/pausa padrão
 
   const { entrada, saida, pausas } = useMemo(() => {
-    const entrada = pontos.find((p) => p.tipo === "entrada");
-    const saida = pontos.find((p) => p.tipo === "saida");
-    const pausas = pontos.filter((p) => p.tipo === "pausa_inicio" || p.tipo === "pausa_fim");
+    // Encontrar eventos do dia e ordenar por horário ASC para cálculos corretos
+    const ordered = [...pontos].sort((a, b) => new Date(a.horario).getTime() - new Date(b.horario).getTime());
+    const entrada = ordered.find((p) => p.tipo === "entrada");
+    const saida = ordered.find((p) => p.tipo === "saida");
+    const pausas = ordered.filter((p) => p.tipo === "pausa_inicio" || p.tipo === "pausa_fim");
     return { entrada, saida, pausas };
   }, [pontos]);
 
@@ -55,8 +57,10 @@ export const StatusCard = ({ pontos }: StatusCardProps) => {
         return;
       }
       
-      const entrada = pontos.find(p => p.tipo === "entrada");
-      const saida = pontos.find(p => p.tipo === "saida");
+      // Usar a ordenação ASC para garantir pareamento correto das pausas
+      const ordered = [...pontos].sort((a, b) => new Date(a.horario).getTime() - new Date(b.horario).getTime());
+      const entrada = ordered.find(p => p.tipo === "entrada");
+      const saida = ordered.find(p => p.tipo === "saida");
 
       if (entrada && !saida) {
         const start = new Date(entrada.horario);
@@ -64,15 +68,21 @@ export const StatusCard = ({ pontos }: StatusCardProps) => {
         const diff = Math.floor((now.getTime() - start.getTime()) / 1000);
 
         // Subtract pause time (including lunch breaks)
-        const pausas = pontos.filter(p => p.tipo === "pausa_inicio" || p.tipo === "pausa_fim");
+        const pausas = ordered.filter(p => p.tipo === "pausa_inicio" || p.tipo === "pausa_fim");
         let pauseTime = 0;
-        
-        for (let i = 0; i < pausas.length; i += 2) {
-          if (pausas[i] && pausas[i].tipo === "pausa_inicio") {
-            const pauseStart = new Date(pausas[i].horario);
-            const pauseEnd = pausas[i + 1] ? new Date(pausas[i + 1].horario) : now;
-            pauseTime += Math.floor((pauseEnd.getTime() - pauseStart.getTime()) / 1000);
+        let currentStart: Date | null = null;
+        for (const p of pausas) {
+          if (p.tipo === "pausa_inicio") {
+            currentStart = new Date(p.horario);
+          } else if (p.tipo === "pausa_fim" && currentStart) {
+            const end = new Date(p.horario);
+            pauseTime += Math.floor((end.getTime() - currentStart.getTime()) / 1000);
+            currentStart = null;
           }
+        }
+        // Se a pausa está em andamento, considerar até o momento atual
+        if (currentStart) {
+          pauseTime += Math.floor((now.getTime() - currentStart.getTime()) / 1000);
         }
 
         const totalSeconds = Math.max(0, diff - pauseTime);
@@ -89,14 +99,16 @@ export const StatusCard = ({ pontos }: StatusCardProps) => {
         const diff = Math.floor((end.getTime() - start.getTime()) / 1000);
 
         // Subtract pause time from completed day
-        const pausas = pontos.filter(p => p.tipo === "pausa_inicio" || p.tipo === "pausa_fim");
+        const pausas = ordered.filter(p => p.tipo === "pausa_inicio" || p.tipo === "pausa_fim");
         let pauseTime = 0;
-        
-        for (let i = 0; i < pausas.length; i += 2) {
-          if (pausas[i] && pausas[i + 1] && pausas[i].tipo === "pausa_inicio" && pausas[i + 1].tipo === "pausa_fim") {
-            const pauseStart = new Date(pausas[i].horario);
-            const pauseEnd = new Date(pausas[i + 1].horario);
-            pauseTime += Math.floor((pauseEnd.getTime() - pauseStart.getTime()) / 1000);
+        let currentStart: Date | null = null;
+        for (const p of pausas) {
+          if (p.tipo === "pausa_inicio") {
+            currentStart = new Date(p.horario);
+          } else if (p.tipo === "pausa_fim" && currentStart) {
+            const end = new Date(p.horario);
+            pauseTime += Math.floor((end.getTime() - currentStart.getTime()) / 1000);
+            currentStart = null;
           }
         }
 
@@ -128,16 +140,18 @@ export const StatusCard = ({ pontos }: StatusCardProps) => {
     // Tempo total trabalhado até agora (descontando pausas)
     let workedSeconds = Math.floor((now.getTime() - entradaDate.getTime()) / 1000);
     let lastPauseStart: Date | null = null;
-
-    for (let i = 0; i < pausas.length; i += 2) {
-      if (pausas[i] && pausas[i].tipo === "pausa_inicio") {
-        const start = new Date(pausas[i].horario);
-        const end = pausas[i + 1] ? new Date(pausas[i + 1].horario) : now;
-        workedSeconds -= Math.floor((end.getTime() - start.getTime()) / 1000);
-        if (!pausas[i + 1]) {
-          lastPauseStart = start; // Pausa em andamento
-        }
+    // Garantir pareamento correto com ordenação ASC
+    const orderedPauses = [...pausas].sort((a, b) => new Date(a.horario).getTime() - new Date(b.horario).getTime());
+    for (const p of orderedPauses) {
+      if (p.tipo === "pausa_inicio") {
+        lastPauseStart = new Date(p.horario);
+      } else if (p.tipo === "pausa_fim" && lastPauseStart) {
+        workedSeconds -= Math.floor((new Date(p.horario).getTime() - lastPauseStart.getTime()) / 1000);
+        lastPauseStart = null;
       }
+    }
+    if (lastPauseStart) {
+      workedSeconds -= Math.floor((now.getTime() - lastPauseStart.getTime()) / 1000);
     }
 
     // Se está em pausa agora, estimar fim da pausa com 1h padrão
@@ -161,7 +175,7 @@ export const StatusCard = ({ pontos }: StatusCardProps) => {
 
   const formatTime = (date: Date | null) => {
     if (!date) return "-";
-    return date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+    return date.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit", hour12: false });
   };
 
   const getStatusBadge = () => {
