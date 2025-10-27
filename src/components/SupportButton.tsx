@@ -10,7 +10,7 @@ type SupportButtonProps = {
 };
 
 export const SupportButton = ({
-  phone = "4199988414",
+  phone = "41999884144",
   message = "Preciso de suporte para o sistema",
 }: SupportButtonProps) => {
   // Sanitiza o número e adiciona código do país (Brasil = 55)

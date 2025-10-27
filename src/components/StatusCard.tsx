@@ -1,7 +1,8 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Clock, PlayCircle, PauseCircle, CheckCircle } from "lucide-react";
-import { useEffect, useState } from "react";
+import { Separator } from "@/components/ui/separator";
+import { Clock, PlayCircle, PauseCircle, CheckCircle, Timer } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
 
 type Ponto = {
   id: string;
@@ -16,6 +17,15 @@ type StatusCardProps = {
 export const StatusCard = ({ pontos }: StatusCardProps) => {
   const [elapsedTime, setElapsedTime] = useState<string>("00:00:00");
   const [status, setStatus] = useState<"aguardando" | "trabalhando" | "pausa" | "finalizado">("aguardando");
+  const DEFAULT_DAILY_WORK_SECONDS = 8 * 60 * 60; // 8h de trabalho líquido
+  const DEFAULT_PAUSE_SECONDS = 60 * 60; // 1h de almoço/pausa padrão
+
+  const { entrada, saida, pausas } = useMemo(() => {
+    const entrada = pontos.find((p) => p.tipo === "entrada");
+    const saida = pontos.find((p) => p.tipo === "saida");
+    const pausas = pontos.filter((p) => p.tipo === "pausa_inicio" || p.tipo === "pausa_fim");
+    return { entrada, saida, pausas };
+  }, [pontos]);
 
   useEffect(() => {
     const calculateStatus = () => {
@@ -44,7 +54,7 @@ export const StatusCard = ({ pontos }: StatusCardProps) => {
         setElapsedTime("00:00:00");
         return;
       }
-
+      
       const entrada = pontos.find(p => p.tipo === "entrada");
       const saida = pontos.find(p => p.tipo === "saida");
 
@@ -104,6 +114,56 @@ export const StatusCard = ({ pontos }: StatusCardProps) => {
     return () => clearInterval(interval);
   }, [pontos]);
 
+  // Cálculo de previsão de fim da pausa e de saída
+  const {
+    predictedPauseEnd,
+    predictedExit,
+    remainingWorkSeconds,
+  } = useMemo(() => {
+    if (!entrada || saida) return { predictedPauseEnd: null as Date | null, predictedExit: null as Date | null, remainingWorkSeconds: 0 };
+
+    const now = new Date();
+    const entradaDate = new Date(entrada.horario);
+
+    // Tempo total trabalhado até agora (descontando pausas)
+    let workedSeconds = Math.floor((now.getTime() - entradaDate.getTime()) / 1000);
+    let lastPauseStart: Date | null = null;
+
+    for (let i = 0; i < pausas.length; i += 2) {
+      if (pausas[i] && pausas[i].tipo === "pausa_inicio") {
+        const start = new Date(pausas[i].horario);
+        const end = pausas[i + 1] ? new Date(pausas[i + 1].horario) : now;
+        workedSeconds -= Math.floor((end.getTime() - start.getTime()) / 1000);
+        if (!pausas[i + 1]) {
+          lastPauseStart = start; // Pausa em andamento
+        }
+      }
+    }
+
+    // Se está em pausa agora, estimar fim da pausa com 1h padrão
+    let predictedPauseEnd: Date | null = null;
+    let remainingPauseSeconds = 0;
+    if (status === "pausa" && lastPauseStart) {
+      predictedPauseEnd = new Date(lastPauseStart.getTime() + DEFAULT_PAUSE_SECONDS * 1000);
+      const elapsedPause = Math.max(0, Math.floor((now.getTime() - lastPauseStart.getTime()) / 1000));
+      remainingPauseSeconds = Math.max(0, DEFAULT_PAUSE_SECONDS - elapsedPause);
+    }
+
+    // Jornada alvo (8h líquidas por padrão)
+    const remainingWorkSeconds = Math.max(0, DEFAULT_DAILY_WORK_SECONDS - workedSeconds);
+
+    // Previsão de saída = agora + restante de trabalho + (restante da pausa, se estiver em pausa)
+    const totalRemaining = remainingWorkSeconds + (status === "pausa" ? remainingPauseSeconds : 0);
+    const predictedExit = totalRemaining > 0 ? new Date(now.getTime() + totalRemaining * 1000) : now;
+
+    return { predictedPauseEnd, predictedExit, remainingWorkSeconds };
+  }, [entrada, saida, pausas, status]);
+
+  const formatTime = (date: Date | null) => {
+    if (!date) return "-";
+    return date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+  };
+
   const getStatusBadge = () => {
     switch (status) {
       case "trabalhando":
@@ -152,6 +212,30 @@ export const StatusCard = ({ pontos }: StatusCardProps) => {
             <p className="text-3xl sm:text-4xl md:text-5xl font-bold tabular-nums tracking-tight text-primary">
               {elapsedTime}
             </p>
+            {(status === "pausa" || status === "trabalhando") && (
+              <div className="mt-4 space-y-2">
+                {status === "pausa" && (
+                  <div className="text-xs sm:text-sm text-muted-foreground flex items-center justify-center gap-2">
+                    <Timer className="h-4 w-4" />
+                    <span>Previsão fim da pausa:</span>
+                    <span className="font-medium text-foreground">{formatTime(predictedPauseEnd)}</span>
+                  </div>
+                )}
+                <div className="flex items-center justify-center">
+                  <Separator className="w-32" />
+                </div>
+                <div className="text-xs sm:text-sm text-muted-foreground flex items-center justify-center gap-2">
+                  <Clock className="h-4 w-4" />
+                  <span>Previsão de saída:</span>
+                  <span className="font-medium text-foreground">{formatTime(predictedExit)}</span>
+                </div>
+                {remainingWorkSeconds === 0 && (
+                  <div className="text-[11px] sm:text-xs text-accent-foreground bg-accent/20 inline-block px-2 py-1 rounded-md mt-1">
+                    Jornada completa — você já pode encerrar quando desejar
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         </div>
       </CardContent>
