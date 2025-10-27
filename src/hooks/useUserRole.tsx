@@ -14,7 +14,9 @@ export const useUserRole = (user: User | null) => {
         return;
       }
 
+      setIsLoading(true);
       try {
+        // Usar cache busting para garantir dados atualizados
         const { data, error } = await supabase
           .from("user_roles")
           .select("role")
@@ -22,8 +24,14 @@ export const useUserRole = (user: User | null) => {
           .eq("role", "admin")
           .maybeSingle();
 
-        if (error) throw error;
-        setIsAdmin(!!data);
+        if (error) {
+          console.error("Erro ao verificar role:", error);
+          throw error;
+        }
+        
+        const adminStatus = !!data;
+        console.log("Admin status for user:", user.id, adminStatus);
+        setIsAdmin(adminStatus);
       } catch (error) {
         console.error("Erro ao verificar role:", error);
         setIsAdmin(false);
@@ -33,7 +41,7 @@ export const useUserRole = (user: User | null) => {
     };
 
     checkRole();
-  }, [user]);
+  }, [user?.id]);
 
   return { isAdmin, isLoading };
 };

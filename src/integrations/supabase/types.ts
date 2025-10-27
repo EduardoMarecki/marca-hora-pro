@@ -14,6 +14,27 @@ export type Database = {
   }
   public: {
     Tables: {
+      empresas: {
+        Row: {
+          cnpj: string | null
+          created_at: string | null
+          id: string
+          nome: string
+        }
+        Insert: {
+          cnpj?: string | null
+          created_at?: string | null
+          id?: string
+          nome: string
+        }
+        Update: {
+          cnpj?: string | null
+          created_at?: string | null
+          id?: string
+          nome?: string
+        }
+        Relationships: []
+      }
       pontos: {
         Row: {
           criado_em: string | null
@@ -57,6 +78,7 @@ export type Database = {
           cargo: string | null
           criado_em: string | null
           email: string
+          empresa_id: string | null
           foto_url: string | null
           horario_entrada: string | null
           horario_saida_almoco: string | null
@@ -71,6 +93,7 @@ export type Database = {
           cargo?: string | null
           criado_em?: string | null
           email: string
+          empresa_id?: string | null
           foto_url?: string | null
           horario_entrada?: string | null
           horario_saida_almoco?: string | null
@@ -85,6 +108,7 @@ export type Database = {
           cargo?: string | null
           criado_em?: string | null
           email?: string
+          empresa_id?: string | null
           foto_url?: string | null
           horario_entrada?: string | null
           horario_saida_almoco?: string | null
@@ -95,7 +119,15 @@ export type Database = {
           nome?: string
           tipo_jornada?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "profiles_empresa_id_fkey"
+            columns: ["empresa_id"]
+            isOneToOne: false
+            referencedRelation: "empresas"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       public_pontos: {
         Row: {
@@ -137,6 +169,7 @@ export type Database = {
           cargo: string | null
           criado_em: string | null
           email: string
+          empresa_id: string | null
           foto_url: string | null
           id: string
           jornada_padrao: string | null
@@ -147,6 +180,7 @@ export type Database = {
           cargo?: string | null
           criado_em?: string | null
           email: string
+          empresa_id?: string | null
           foto_url?: string | null
           id: string
           jornada_padrao?: string | null
@@ -157,13 +191,22 @@ export type Database = {
           cargo?: string | null
           criado_em?: string | null
           email?: string
+          empresa_id?: string | null
           foto_url?: string | null
           id?: string
           jornada_padrao?: string | null
           nome?: string
           tipo_jornada?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "public_profiles_empresa_id_fkey"
+            columns: ["empresa_id"]
+            isOneToOne: false
+            referencedRelation: "empresas"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       user_roles: {
         Row: {

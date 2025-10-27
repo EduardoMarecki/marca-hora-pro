@@ -6,6 +6,12 @@ import { Label } from "@/components/ui/label";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { User } from "@supabase/supabase-js";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+
+type Empresa = {
+  id: string;
+  nome: string;
+};
 
 type EditarPerfilDialogProps = {
   open: boolean;
@@ -15,8 +21,10 @@ type EditarPerfilDialogProps = {
 
 export const EditarPerfilDialog = ({ open, onOpenChange, user }: EditarPerfilDialogProps) => {
   const [loading, setLoading] = useState(false);
+  const [empresas, setEmpresas] = useState<Empresa[]>([]);
   const [nome, setNome] = useState("");
   const [cargo, setCargo] = useState("");
+  const [empresaId, setEmpresaId] = useState("");
   const [tipoJornada, setTipoJornada] = useState("5x2");
   const [horarioEntrada, setHorarioEntrada] = useState("08:00");
   const [horarioSaidaAlmoco, setHorarioSaidaAlmoco] = useState("12:00");
@@ -26,8 +34,23 @@ export const EditarPerfilDialog = ({ open, onOpenChange, user }: EditarPerfilDia
   useEffect(() => {
     if (open && user) {
       loadProfile();
+      loadEmpresas();
     }
   }, [open, user]);
+
+  const loadEmpresas = async () => {
+    try {
+      const { data, error } = await supabase
+        .from("empresas")
+        .select("id, nome")
+        .order("nome");
+      
+      if (error) throw error;
+      setEmpresas(data || []);
+    } catch (error) {
+      console.error("Erro ao carregar empresas:", error);
+    }
+  };
 
   const loadProfile = async () => {
     if (!user) return;
@@ -44,6 +67,7 @@ export const EditarPerfilDialog = ({ open, onOpenChange, user }: EditarPerfilDia
       if (data) {
         setNome(data.nome || "");
         setCargo(data.cargo || "");
+        setEmpresaId(data.empresa_id || "");
         setTipoJornada(data.tipo_jornada || "5x2");
         setHorarioEntrada(data.horario_entrada || "08:00");
         setHorarioSaidaAlmoco(data.horario_saida_almoco || "12:00");
@@ -65,6 +89,7 @@ export const EditarPerfilDialog = ({ open, onOpenChange, user }: EditarPerfilDia
         .update({
           nome,
           cargo,
+          empresa_id: empresaId || null,
           tipo_jornada: tipoJornada,
           horario_entrada: horarioEntrada,
           horario_saida_almoco: horarioSaidaAlmoco,
@@ -110,6 +135,22 @@ export const EditarPerfilDialog = ({ open, onOpenChange, user }: EditarPerfilDia
               onChange={(e) => setCargo(e.target.value)}
               placeholder="Seu cargo na empresa"
             />
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="empresa">Empresa</Label>
+            <Select value={empresaId} onValueChange={setEmpresaId}>
+              <SelectTrigger>
+                <SelectValue placeholder="Selecione sua empresa" />
+              </SelectTrigger>
+              <SelectContent>
+                {empresas.map((empresa) => (
+                  <SelectItem key={empresa.id} value={empresa.id}>
+                    {empresa.nome}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
 
           <div className="space-y-2">

@@ -8,16 +8,24 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
 import { Clock, Loader2 } from "lucide-react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+
+type Empresa = {
+  id: string;
+  nome: string;
+};
 
 const Auth = () => {
   const navigate = useNavigate();
   const [isLoading, setIsLoading] = useState(false);
+  const [empresas, setEmpresas] = useState<Empresa[]>([]);
   const [loginData, setLoginData] = useState({ email: "", password: "" });
   const [signupData, setSignupData] = useState({
     nome: "",
     email: "",
     password: "",
     cargo: "",
+    empresa_id: "",
   });
 
   useEffect(() => {
@@ -28,7 +36,22 @@ const Auth = () => {
       }
     };
     checkUser();
+    loadEmpresas();
   }, [navigate]);
+
+  const loadEmpresas = async () => {
+    try {
+      const { data, error } = await supabase
+        .from("empresas")
+        .select("id, nome")
+        .order("nome");
+      
+      if (error) throw error;
+      setEmpresas(data || []);
+    } catch (error) {
+      console.error("Erro ao carregar empresas:", error);
+    }
+  };
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -74,11 +97,12 @@ const Auth = () => {
       if (user) {
         await supabase.from("profiles").update({
           cargo: signupData.cargo,
+          empresa_id: signupData.empresa_id || null,
         }).eq("id", user.id);
       }
 
       toast.success("Conta criada! Você já pode fazer login.");
-      setSignupData({ nome: "", email: "", password: "", cargo: "" });
+      setSignupData({ nome: "", email: "", password: "", cargo: "", empresa_id: "" });
     } catch (error: any) {
       toast.error(error.message || "Erro ao criar conta");
     } finally {
@@ -177,6 +201,24 @@ const Auth = () => {
                     value={signupData.cargo}
                     onChange={(e) => setSignupData({ ...signupData, cargo: e.target.value })}
                   />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="signup-empresa">Empresa</Label>
+                  <Select
+                    value={signupData.empresa_id}
+                    onValueChange={(value) => setSignupData({ ...signupData, empresa_id: value })}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Selecione sua empresa" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {empresas.map((empresa) => (
+                        <SelectItem key={empresa.id} value={empresa.id}>
+                          {empresa.nome}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="signup-password">Senha</Label>
