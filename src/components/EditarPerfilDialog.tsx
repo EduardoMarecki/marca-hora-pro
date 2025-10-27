@@ -7,6 +7,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { User } from "@supabase/supabase-js";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { applyTheme } from "@/lib/theme";
 
 type Empresa = {
   id: string;
@@ -30,6 +31,7 @@ export const EditarPerfilDialog = ({ open, onOpenChange, user }: EditarPerfilDia
   const [horarioSaidaAlmoco, setHorarioSaidaAlmoco] = useState("12:00");
   const [horarioVoltaAlmoco, setHorarioVoltaAlmoco] = useState("13:00");
   const [horarioSaidaFinal, setHorarioSaidaFinal] = useState("17:00");
+  const [themePreference, setThemePreference] = useState<'system'|'light'|'dark'>("system");
 
   useEffect(() => {
     if (open && user) {
@@ -73,6 +75,7 @@ export const EditarPerfilDialog = ({ open, onOpenChange, user }: EditarPerfilDia
         setHorarioSaidaAlmoco(data.horario_saida_almoco || "12:00");
         setHorarioVoltaAlmoco(data.horario_volta_almoco || "13:00");
         setHorarioSaidaFinal(data.horario_saida_final || "17:00");
+        setThemePreference((data.theme_preference as 'system'|'light'|'dark') || 'system');
       }
     } catch (error: any) {
       toast.error("Erro ao carregar perfil");
@@ -95,11 +98,14 @@ export const EditarPerfilDialog = ({ open, onOpenChange, user }: EditarPerfilDia
           horario_saida_almoco: horarioSaidaAlmoco,
           horario_volta_almoco: horarioVoltaAlmoco,
           horario_saida_final: horarioSaidaFinal,
+          theme_preference: themePreference,
         })
         .eq("id", user.id);
 
       if (error) throw error;
 
+      // Aplica imediatamente o tema escolhido
+      applyTheme(themePreference);
       toast.success("Perfil atualizado com sucesso!");
       onOpenChange(false);
     } catch (error: any) {
@@ -210,6 +216,23 @@ export const EditarPerfilDialog = ({ open, onOpenChange, user }: EditarPerfilDia
                   onChange={(e) => setHorarioSaidaFinal(e.target.value)}
                 />
               </div>
+            </div>
+          </div>
+
+          <div className="border-t pt-4">
+            <h3 className="font-semibold mb-4">Aparência</h3>
+            <div className="space-y-2">
+              <Label htmlFor="themePreference">Tema</Label>
+              <Select value={themePreference} onValueChange={(v) => setThemePreference(v as any)}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Preferência de tema" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="system">Sistema</SelectItem>
+                  <SelectItem value="light">Claro</SelectItem>
+                  <SelectItem value="dark">Escuro</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
           </div>
 

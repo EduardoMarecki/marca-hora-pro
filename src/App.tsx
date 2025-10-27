@@ -10,6 +10,7 @@ import Historico from "./pages/Historico";
 import Equipe from "./pages/Equipe";
 import NotFound from "./pages/NotFound";
 import SupportButton from "@/components/SupportButton";
+import { ThemeLoader } from "@/components/ThemeLoader";
 
 const queryClient = new QueryClient();
 
@@ -19,6 +20,7 @@ const App = () => (
       <Toaster />
       <Sonner />
       <BrowserRouter>
+        <ThemeLoader />
         <Routes>
           <Route path="/" element={<Index />} />
           <Route path="/auth" element={<Auth />} />
