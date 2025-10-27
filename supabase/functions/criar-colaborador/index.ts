@@ -59,7 +59,7 @@ serve(async (req) => {
 
     // Associate profile with empresa_id and cargo if provided
     if (empresaId || cargo) {
-      const updates: Record<string, any> = {};
+      const updates: { empresa_id?: string; cargo?: string } = {};
       if (empresaId) updates.empresa_id = empresaId;
       if (cargo) updates.cargo = cargo;
       const { error: profileErr } = await admin.from("profiles").update(updates).eq("id", newUser.id);
