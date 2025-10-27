@@ -11,6 +11,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
+import { Button } from "@/components/ui/button";
 
 type Profile = {
   id: string;
@@ -33,6 +34,8 @@ const Equipe = () => {
   const [profiles, setProfiles] = useState<Profile[]>([]);
   const [pontosHoje, setPontosHoje] = useState<Record<string, PontoHoje[]>>({});
   const [isLoading, setIsLoading] = useState(true);
+  const [adminMap, setAdminMap] = useState<Record<string, boolean>>({});
+  const [adminUpdating, setAdminUpdating] = useState<Record<string, boolean>>({});
 
   const { isAdmin, isLoading: roleLoading } = useUserRole(user);
 
@@ -100,6 +103,18 @@ const Equipe = () => {
       if (profilesError) throw profilesError;
       setProfiles(profilesData || []);
 
+      // Carregar mapa de admins
+      const { data: adminRoles, error: adminError } = await supabase
+        .from("user_roles")
+        .select("user_id")
+        .eq("role", "admin");
+      if (adminError) throw adminError;
+      const map: Record<string, boolean> = {};
+      (adminRoles || []).forEach((r: { user_id: string }) => {
+        map[r.user_id] = true;
+      });
+      setAdminMap(map);
+
       // Carregar pontos de hoje
       const today = new Date();
       today.setHours(0, 0, 0, 0);
@@ -127,6 +142,27 @@ const Equipe = () => {
     } catch (error: any) {
       toast.error("Erro ao carregar equipe");
       console.error(error);
+    }
+  };
+
+  const updateAdminForUser = async (targetUserId: string, makeAdmin: boolean) => {
+    setAdminUpdating((prev) => ({ ...prev, [targetUserId]: true }));
+    try {
+      const rpcName = makeAdmin ? "grant_admin" : "revoke_admin";
+      const { error } = await supabase.rpc(rpcName, { target_user: targetUserId });
+      if (error) throw error;
+
+      setAdminMap((prev) => ({ ...prev, [targetUserId]: makeAdmin }));
+      toast.success(
+        makeAdmin
+          ? "Permissão de administrador concedida."
+          : "Permissão de administrador removida."
+      );
+    } catch (error) {
+      console.error(error);
+      toast.error("Não foi possível atualizar a permissão de administrador.");
+    } finally {
+      setAdminUpdating((prev) => ({ ...prev, [targetUserId]: false }));
     }
   };
 
@@ -193,6 +229,7 @@ const Equipe = () => {
                     <TableHead>Status</TableHead>
                     <TableHead>Último Registro</TableHead>
                     <TableHead>Total de Registros</TableHead>
+                    <TableHead>Admin</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -237,6 +274,20 @@ const Equipe = () => {
                           </TableCell>
                           <TableCell>{ultimoPonto || "-"}</TableCell>
                           <TableCell className="text-center">{totalPontos}</TableCell>
+                          <TableCell>
+                            <Button
+                              variant={adminMap[profile.id] ? "destructive" : "default"}
+                              size="sm"
+                              disabled={adminUpdating[profile.id]}
+                              onClick={() => updateAdminForUser(profile.id, !adminMap[profile.id])}
+                            >
+                              {adminUpdating[profile.id]
+                                ? "Atualizando..."
+                                : adminMap[profile.id]
+                                  ? "Remover Admin"
+                                  : "Tornar Admin"}
+                            </Button>
+                          </TableCell>
                         </TableRow>
                       );
                     })
