@@ -13,6 +13,7 @@ type Ponto = {
   tipo: string;
   horario: string;
   localizacao: string | null;
+  selfie_url?: string | null;
 };
 
 type HistoricoCardProps = {
@@ -89,6 +90,15 @@ export const HistoricoCard = ({ pontos, userEmail, onUpdate }: HistoricoCardProp
                       </div>
                     </div>
                     <div className="flex items-center gap-1 sm:gap-2 flex-shrink-0">
+                      {ponto.selfie_url && (
+                        <a href={ponto.selfie_url} target="_blank" rel="noreferrer" title="Ver selfie">
+                          <img
+                            src={ponto.selfie_url}
+                            alt="Selfie do registro"
+                            className="h-8 w-8 rounded-md object-cover border"
+                          />
+                        </a>
+                      )}
                       <Badge variant={getTipoVariant(ponto.tipo) as any} className="text-xs">
                         {format(new Date(ponto.horario), "HH:mm", { locale: ptBR })}
                       </Badge>

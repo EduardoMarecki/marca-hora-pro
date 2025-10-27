@@ -17,6 +17,7 @@ type Ponto = {
   tipo: string;
   horario: string;
   localizacao: string | null;
+  selfie_url?: string | null;
 };
 
 const Painel = () => {
@@ -79,7 +80,7 @@ const Painel = () => {
     }
   };
 
-  const handleRegistrarPonto = async (tipo: string) => {
+  const handleRegistrarPonto = async (tipo: string, selfieUrl?: string) => {
     if (!user) return;
 
     try {
@@ -87,6 +88,7 @@ const Painel = () => {
         user_id: user.id,
         tipo,
         horario: new Date().toISOString(),
+        selfie_url: selfieUrl || null,
       });
 
       if (error) throw error;
@@ -94,7 +96,8 @@ const Painel = () => {
       toast.success(`${tipo.replace("_", " ").toUpperCase()} registrado!`);
       loadPontos();
     } catch (error: any) {
-      toast.error("Erro ao registrar ponto");
+      console.error("Erro ao registrar ponto:", error);
+      toast.error(error?.message || "Erro ao registrar ponto");
     }
   };
 

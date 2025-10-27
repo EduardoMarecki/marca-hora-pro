@@ -8,6 +8,7 @@ import { toast } from "sonner";
 import { User } from "@supabase/supabase-js";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { applyTheme } from "@/lib/theme";
+import { Switch } from "@/components/ui/switch";
 
 type Empresa = {
   id: string;
@@ -32,6 +33,7 @@ export const EditarPerfilDialog = ({ open, onOpenChange, user }: EditarPerfilDia
   const [horarioVoltaAlmoco, setHorarioVoltaAlmoco] = useState("13:00");
   const [horarioSaidaFinal, setHorarioSaidaFinal] = useState("17:00");
   const [themePreference, setThemePreference] = useState<'system'|'light'|'dark'>("system");
+  const [exigirSelfie, setExigirSelfie] = useState<boolean>(false);
 
   useEffect(() => {
     if (open && user) {
@@ -76,6 +78,7 @@ export const EditarPerfilDialog = ({ open, onOpenChange, user }: EditarPerfilDia
         setHorarioVoltaAlmoco(data.horario_volta_almoco || "13:00");
         setHorarioSaidaFinal(data.horario_saida_final || "17:00");
         setThemePreference((data.theme_preference as 'system'|'light'|'dark') || 'system');
+        setExigirSelfie(!!data.exigir_selfie);
       }
     } catch (error: any) {
       toast.error("Erro ao carregar perfil");
@@ -87,7 +90,8 @@ export const EditarPerfilDialog = ({ open, onOpenChange, user }: EditarPerfilDia
 
     setLoading(true);
     try {
-      const { error } = await supabase
+      // Primeira tentativa: atualizar com theme_preference (ambiente com migration aplicada)
+      let { error } = await supabase
         .from("profiles")
         .update({
           nome,
@@ -99,8 +103,30 @@ export const EditarPerfilDialog = ({ open, onOpenChange, user }: EditarPerfilDia
           horario_volta_almoco: horarioVoltaAlmoco,
           horario_saida_final: horarioSaidaFinal,
           theme_preference: themePreference,
+          exigir_selfie: exigirSelfie,
         })
         .eq("id", user.id);
+
+      // Fallback: se a coluna não existir no ambiente (erro 42703/column does not exist), tenta sem theme_preference
+      if (error && (error.code === '42703' || (error.message && (error.message.toLowerCase().includes('theme_preference') || error.message.toLowerCase().includes('exigir_selfie'))))) {
+        const retry = await supabase
+          .from("profiles")
+          .update({
+            nome,
+            cargo,
+            empresa_id: empresaId || null,
+            tipo_jornada: tipoJornada,
+            horario_entrada: horarioEntrada,
+            horario_saida_almoco: horarioSaidaAlmoco,
+            horario_volta_almoco: horarioVoltaAlmoco,
+            horario_saida_final: horarioSaidaFinal,
+          })
+          .eq("id", user.id);
+        error = retry.error;
+        if (!retry.error) {
+          toast.warning("Algumas preferências (tema/selfie) não foram salvas (execute as migrations em produção). Perfil atualizado mesmo assim.");
+        }
+      }
 
       if (error) throw error;
 
@@ -109,7 +135,8 @@ export const EditarPerfilDialog = ({ open, onOpenChange, user }: EditarPerfilDia
       toast.success("Perfil atualizado com sucesso!");
       onOpenChange(false);
     } catch (error: any) {
-      toast.error("Erro ao atualizar perfil");
+      console.error("Erro ao atualizar perfil:", error);
+      toast.error(error?.message || "Erro ao atualizar perfil");
     } finally {
       setLoading(false);
     }
@@ -233,6 +260,17 @@ export const EditarPerfilDialog = ({ open, onOpenChange, user }: EditarPerfilDia
                   <SelectItem value="dark">Escuro</SelectItem>
                 </SelectContent>
               </Select>
+            </div>
+          </div>
+
+          <div className="border-t pt-4">
+            <h3 className="font-semibold mb-4">Compliance</h3>
+            <div className="flex items-center justify-between">
+              <div>
+                <Label htmlFor="exigirSelfie">Exigir selfie ao bater ponto</Label>
+                <p className="text-xs text-muted-foreground">Quando ativado, solicitará uma foto antes de registrar o ponto.</p>
+              </div>
+              <Switch id="exigirSelfie" checked={exigirSelfie} onCheckedChange={setExigirSelfie} />
             </div>
           </div>
 
