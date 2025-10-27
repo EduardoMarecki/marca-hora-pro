@@ -15,6 +15,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import PDFImport from "@/components/PDFImport";
+import type { TimesheetRow } from "@/lib/pdfReader";
 
 type Profile = {
   id: string;
@@ -47,6 +49,7 @@ const Equipe = () => {
   const [novaEmpresaId, setNovaEmpresaId] = useState<string>("");
   const [creating, setCreating] = useState(false);
   const [isAdminDb, setIsAdminDb] = useState<boolean>(false);
+  const [pdfRows, setPdfRows] = useState<TimesheetRow[]>([]);
 
   const { isAdmin, isLoading: roleLoading } = useUserRole(user);
 
@@ -306,8 +309,23 @@ const Equipe = () => {
                     <Button onClick={handleCreateColaborador} disabled={creating}>{creating ? "Criando..." : "Criar"}</Button>
                   </div>
                 </div>
-              </DialogContent>
-            </Dialog>
+            </DialogContent>
+          </Dialog>
+
+            {/* Importação de PDF - folha de ponto */}
+            <div className="mt-6">
+              <h3 className="text-base font-semibold mb-2">Importar folha de ponto (PDF)</h3>
+              <p className="text-sm text-muted-foreground mb-3">
+                Envie um PDF com texto (não escaneado) para extrair datas e horários automaticamente.
+              </p>
+              <PDFImport
+                enableTimesheetParsing
+                onExtract={(data) => {
+                  setPdfRows(data.rows || []);
+                  toast.success(`${data.rows?.length || 0} linhas identificadas no PDF.`);
+                }}
+              />
+            </div>
 
             <div className="rounded-md border mt-4">
               <Table>
