@@ -57,23 +57,37 @@ const Equipe = () => {
   }, [navigate]);
 
   useEffect(() => {
-    if (!user) return;
-    
-    // Aguardar o loading terminar
-    if (roleLoading) return;
-    
-    // Só redirecionar se confirmado que NÃO é admin
-    if (!isAdmin) {
-      console.log("Usuário não é admin, redirecionando");
-      toast.error("Acesso restrito a administradores");
-      navigate("/painel");
-      return;
-    }
-    
-    // Se chegou aqui, é admin confirmado
-    console.log("Usuário confirmado como admin, carregando equipe");
-    loadEquipe();
-  }, [user, isAdmin, roleLoading, navigate]);
+    const verifyAndLoad = async () => {
+      if (!user || roleLoading) return;
+      
+      try {
+        // Verificação direta no banco de dados
+        const { data: roleData } = await supabase
+          .from("user_roles")
+          .select("role")
+          .eq("user_id", user.id)
+          .eq("role", "admin")
+          .maybeSingle();
+        
+        const isUserAdmin = !!roleData;
+        console.log("Verificação direta admin:", isUserAdmin);
+        
+        if (!isUserAdmin) {
+          toast.error("Acesso restrito a administradores");
+          navigate("/painel");
+          return;
+        }
+        
+        await loadEquipe();
+      } catch (error) {
+        console.error("Erro na verificação:", error);
+        toast.error("Erro ao verificar permissões");
+        navigate("/painel");
+      }
+    };
+
+    verifyAndLoad();
+  }, [user, roleLoading, navigate]);
 
   const loadEquipe = async () => {
     try {
