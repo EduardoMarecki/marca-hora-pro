@@ -9,6 +9,7 @@ import Painel from "./pages/Painel";
 import Historico from "./pages/Historico";
 import Equipe from "./pages/Equipe";
 import NotFound from "./pages/NotFound";
+import SupportButton from "@/components/SupportButton";
 
 const queryClient = new QueryClient();
 
@@ -27,6 +28,8 @@ const App = () => (
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
         </Routes>
+        {/* Botão flutuante de suporte via WhatsApp, visível em todas as páginas */}
+        <SupportButton />
       </BrowserRouter>
     </TooltipProvider>
   </QueryClientProvider>
