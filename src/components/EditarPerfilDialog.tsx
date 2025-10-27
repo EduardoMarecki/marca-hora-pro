@@ -77,8 +77,8 @@ export const EditarPerfilDialog = ({ open, onOpenChange, user }: EditarPerfilDia
         setHorarioSaidaAlmoco(data.horario_saida_almoco || "12:00");
         setHorarioVoltaAlmoco(data.horario_volta_almoco || "13:00");
         setHorarioSaidaFinal(data.horario_saida_final || "17:00");
-        setThemePreference((data.theme_preference as 'system'|'light'|'dark') || 'system');
-        setExigirSelfie(!!data.exigir_selfie);
+        setThemePreference((data as any).theme_preference || 'system');
+        setExigirSelfie(!!(data as any).exigir_selfie);
       }
     } catch (error: any) {
       toast.error("Erro ao carregar perfil");

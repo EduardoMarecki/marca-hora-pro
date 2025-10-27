@@ -21,7 +21,9 @@ export const ThemeLoader = () => {
           .maybeSingle();
 
         if (!mounted) return;
-        const pref = (data?.theme_preference as 'system'|'light'|'dark') || 'system';
+        const pref = (data as any)?.theme_preference === 'light' || (data as any)?.theme_preference === 'dark'
+          ? (data as any).theme_preference
+          : 'system';
         applyTheme(pref);
       } catch {
         applyTheme('system');

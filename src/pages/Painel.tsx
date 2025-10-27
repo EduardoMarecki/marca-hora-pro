@@ -102,8 +102,15 @@ const Painel = () => {
   };
 
   const handleLogout = async () => {
-    await supabase.auth.signOut();
-    navigate("/auth");
+    try {
+      await supabase.auth.signOut();
+      // Não navegamos manualmente aqui para evitar abortar a requisição de logout.
+      // O redirecionamento para /auth é tratado pelo onAuthStateChange acima.
+    } catch (e: any) {
+      if (e?.name !== "AbortError") {
+        console.error("Erro ao sair:", e);
+      }
+    }
   };
 
   if (isLoading) {

@@ -45,7 +45,7 @@ export const PontoActions = ({ pontos, onRegistrar }: PontoActionsProps) => {
         console.warn('Falha ao carregar exigir_selfie:', error);
         setExigirSelfie(false);
       } else {
-        setExigirSelfie(!!data?.exigir_selfie);
+        setExigirSelfie(!!(data as any)?.exigir_selfie);
       }
     })();
     return () => { active = false };
