@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -7,6 +7,7 @@ import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { Clock, Pencil } from "lucide-react";
 import { EditarPontoDialog } from "@/components/EditarPontoDialog";
+import { supabase } from "@/integrations/supabase/client";
 
 type Ponto = {
   id: string;
@@ -104,13 +105,7 @@ export const HistoricoCard = ({ pontos, userEmail, onUpdate }: HistoricoCardProp
                     </div>
                     <div className="flex items-center gap-1 sm:gap-2 flex-shrink-0">
                       {ponto.selfie_url && (
-                        <a href={ponto.selfie_url} target="_blank" rel="noreferrer" title="Ver selfie">
-                          <img
-                            src={ponto.selfie_url}
-                            alt="Selfie do registro"
-                            className="h-8 w-8 rounded-md object-cover border"
-                          />
-                        </a>
+                        <SelfieThumb pontoId={ponto.id} selfieRef={ponto.selfie_url} />
                       )}
                       <Badge variant={getTipoVariant(ponto.tipo) as any} className="text-xs">
                         {format(new Date(ponto.horario), "HH:mm", { locale: ptBR })}
@@ -145,5 +140,48 @@ export const HistoricoCard = ({ pontos, userEmail, onUpdate }: HistoricoCardProp
         />
       )}
     </>
+  );
+};
+
+type SelfieThumbProps = { pontoId: string; selfieRef: string };
+
+// Exibe miniatura com URL assinada quando o valor armazenado é um caminho; se já for URL http, usa direto
+const SelfieThumb = ({ pontoId, selfieRef }: SelfieThumbProps) => {
+  const [url, setUrl] = useState<string | null>(null);
+  const isHttp = useMemo(() => /^https?:\/\//i.test(selfieRef), [selfieRef]);
+
+  useEffect(() => {
+    let alive = true;
+    const load = async () => {
+      try {
+        if (isHttp) {
+          if (alive) setUrl(selfieRef);
+          return;
+        }
+        // selfieRef é um caminho do bucket privado "selfies"
+        const { data, error } = await supabase.storage
+          .from('selfies')
+          .createSignedUrl(selfieRef, 60 * 10); // 10 minutos
+        if (error) throw error;
+        if (alive) setUrl(data?.signedUrl || null);
+      } catch (e) {
+        console.warn('Falha ao gerar URL da selfie', pontoId, e);
+        if (alive) setUrl(null);
+      }
+    };
+    load();
+    return () => { alive = false; };
+  }, [isHttp, selfieRef, pontoId]);
+
+  if (!url) return null;
+  return (
+    <a href={url} target="_blank" rel="noreferrer" title="Ver selfie">
+      <img
+        src={url}
+        alt="Selfie do registro"
+        className="h-8 w-8 rounded-md object-cover border"
+        onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }}
+      />
+    </a>
   );
 };

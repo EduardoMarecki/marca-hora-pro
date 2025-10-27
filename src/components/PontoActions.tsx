@@ -61,8 +61,8 @@ export const PontoActions = ({ pontos, onRegistrar }: PontoActionsProps) => {
       const path = `${user.id}/${Date.now()}.${ext}`;
       const { error: upErr } = await supabase.storage.from('selfies').upload(path, file, { upsert: false, contentType: file.type });
       if (upErr) throw upErr;
-      const { data } = supabase.storage.from('selfies').getPublicUrl(path);
-      return data.publicUrl;
+      // Retornamos apenas o caminho do objeto. A visualização será feita via URL assinada (bucket privado)
+      return path;
     } catch (e: any) {
       console.error('Falha no upload da selfie:', e);
       toast.warning('Não foi possível salvar a selfie. O ponto será registrado sem foto.');
