@@ -18,6 +18,10 @@ type Ponto = {
   horario: string;
   localizacao: string | null;
   selfie_url?: string | null;
+  latitude?: number | null;
+  longitude?: number | null;
+  accuracy?: number | null;
+  location_source?: string | null;
 };
 
 const Painel = () => {
@@ -84,11 +88,52 @@ const Painel = () => {
     if (!user) return;
 
     try {
+      // Tentar obter geolocalização (básico)
+      let latitude: number | null = null;
+      let longitude: number | null = null;
+      let accuracy: number | null = null;
+      let location_source: string | null = null;
+
+      const getPosition = () =>
+        new Promise<GeolocationPosition>((resolve, reject) => {
+          if (!("geolocation" in navigator)) {
+            reject({ code: -1, message: "Geolocalização não suportada" });
+            return;
+          }
+          navigator.geolocation.getCurrentPosition(
+            (pos) => resolve(pos),
+            (err) => reject(err),
+            { enableHighAccuracy: true, timeout: 8000, maximumAge: 0 }
+          );
+        });
+
+      try {
+        const pos = await getPosition();
+        latitude = pos.coords.latitude;
+        longitude = pos.coords.longitude;
+        accuracy = Number.isFinite(pos.coords.accuracy) ? pos.coords.accuracy : null;
+        location_source = "gps";
+      } catch (geoErr: any) {
+        // Mapear motivos comuns, mas não bloquear o registro do ponto
+        if (typeof geoErr?.code === "number") {
+          if (geoErr.code === 1) location_source = "denied"; // PERMISSION_DENIED
+          else if (geoErr.code === 2) location_source = "unavailable"; // POSITION_UNAVAILABLE
+          else if (geoErr.code === 3) location_source = "timeout"; // TIMEOUT
+          else location_source = "error";
+        } else {
+          location_source = "error";
+        }
+      }
+
       const { error } = await supabase.from("pontos").insert({
         user_id: user.id,
         tipo,
         horario: new Date().toISOString(),
         selfie_url: selfieUrl || null,
+        latitude,
+        longitude,
+        accuracy,
+        location_source,
       });
 
       if (error) throw error;

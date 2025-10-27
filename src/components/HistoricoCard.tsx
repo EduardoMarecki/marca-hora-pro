@@ -14,6 +14,10 @@ type Ponto = {
   horario: string;
   localizacao: string | null;
   selfie_url?: string | null;
+  latitude?: number | null;
+  longitude?: number | null;
+  accuracy?: number | null;
+  location_source?: string | null;
 };
 
 type HistoricoCardProps = {
@@ -87,6 +91,15 @@ export const HistoricoCard = ({ pontos, userEmail, onUpdate }: HistoricoCardProp
                         <span className="text-xs text-muted-foreground">
                           {format(new Date(ponto.horario), "HH:mm:ss", { locale: ptBR })}
                         </span>
+                        {ponto.latitude != null && ponto.longitude != null ? (
+                          <span className="text-[10px] sm:text-[11px] text-muted-foreground">
+                            GPS ~{Math.round((ponto.accuracy || 0))}m
+                          </span>
+                        ) : ponto.location_source ? (
+                          <span className="text-[10px] sm:text-[11px] text-muted-foreground">
+                            Localização: {ponto.location_source}
+                          </span>
+                        ) : null}
                       </div>
                     </div>
                     <div className="flex items-center gap-1 sm:gap-2 flex-shrink-0">
