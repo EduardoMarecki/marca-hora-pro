@@ -3,12 +3,27 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
+// Add CORS headers and handle preflight requests so the browser can call this function
+const corsHeaders = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Methods": "POST, OPTIONS",
+};
+
 serve(async (req) => {
+  // Respond to CORS preflight
+  if (req.method === "OPTIONS") {
+    return new Response("ok", { headers: corsHeaders });
+  }
+
   try {
     const supabaseUrl = Deno.env.get("SUPABASE_URL");
     const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
     if (!supabaseUrl || !serviceRoleKey) {
-      return new Response(JSON.stringify({ error: "Missing Supabase env" }), { status: 500 });
+      return new Response(
+        JSON.stringify({ error: "Missing Supabase env" }),
+        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
     }
 
     const admin = createClient(supabaseUrl, serviceRoleKey, {
@@ -19,23 +34,35 @@ serve(async (req) => {
     const authHeader = req.headers.get("Authorization");
     const token = authHeader?.replace("Bearer ", "");
     if (!token) {
-      return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401 });
+      return new Response(
+        JSON.stringify({ error: "Unauthorized" }),
+        { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
     }
     const { data: userData, error: getUserError } = await admin.auth.getUser(token);
     if (getUserError || !userData?.user) {
-      return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401 });
+      return new Response(
+        JSON.stringify({ error: "Unauthorized" }),
+        { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
     }
     const callerId = userData.user.id;
     const { data: isAdmin } = await admin.rpc("has_role", { _user_id: callerId, _role: "admin" });
     if (!isAdmin) {
-      return new Response(JSON.stringify({ error: "Forbidden" }), { status: 403 });
+      return new Response(
+        JSON.stringify({ error: "Forbidden" }),
+        { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
     }
 
     const body = await req.json();
     const { email, nome, empresaId, cargo } = body as { email: string; nome: string; empresaId?: string; cargo?: string };
 
     if (!email || !nome) {
-      return new Response(JSON.stringify({ error: "email and nome are required" }), { status: 400 });
+      return new Response(
+        JSON.stringify({ error: "email and nome are required" }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
     }
 
     // Create user with default password and basic metadata
@@ -47,7 +74,10 @@ serve(async (req) => {
       email_confirm: false, // do not auto-confirm
     });
     if (createErr) {
-      return new Response(JSON.stringify({ error: createErr.message }), { status: 400 });
+      return new Response(
+        JSON.stringify({ error: createErr.message }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
     }
 
     const newUser = created.user;
@@ -71,10 +101,13 @@ serve(async (req) => {
 
     return new Response(
       JSON.stringify({ success: true, user_id: newUser.id, email }),
-      { status: 200, headers: { "Content-Type": "application/json" } }
+      { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   } catch (e) {
     console.error(e);
-    return new Response(JSON.stringify({ error: "Unexpected error" }), { status: 500 });
+    return new Response(
+      JSON.stringify({ error: "Unexpected error" }),
+      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+    );
   }
 });
