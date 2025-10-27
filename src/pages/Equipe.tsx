@@ -12,6 +12,9 @@ import { Badge } from "@/components/ui/badge";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 type Profile = {
   id: string;
@@ -36,6 +39,13 @@ const Equipe = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [adminMap, setAdminMap] = useState<Record<string, boolean>>({});
   const [adminUpdating, setAdminUpdating] = useState<Record<string, boolean>>({});
+  const [empresas, setEmpresas] = useState<{ id: string; nome: string }[]>([]);
+  const [createOpen, setCreateOpen] = useState(false);
+  const [novoNome, setNovoNome] = useState("");
+  const [novoEmail, setNovoEmail] = useState("");
+  const [novoCargo, setNovoCargo] = useState("");
+  const [novaEmpresaId, setNovaEmpresaId] = useState<string>("");
+  const [creating, setCreating] = useState(false);
 
   const { isAdmin, isLoading: roleLoading } = useUserRole(user);
 
@@ -103,6 +113,15 @@ const Equipe = () => {
       if (profilesError) throw profilesError;
       setProfiles(profilesData || []);
 
+      // Carregar empresas (admins podem ver todas)
+      const { data: empresasData, error: empresasError } = await supabase
+        .from("empresas")
+        .select("id, nome")
+        .order("nome");
+      if (!empresasError) {
+        setEmpresas(empresasData || []);
+      }
+
       // Carregar mapa de admins
       const { data: adminRoles, error: adminError } = await supabase
         .from("user_roles")
@@ -145,11 +164,37 @@ const Equipe = () => {
     }
   };
 
+  const handleCreateColaborador = async () => {
+    if (!novoNome || !novoEmail || !novaEmpresaId) {
+      toast.error("Preencha nome, e-mail e empresa.");
+      return;
+    }
+    setCreating(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("criar-colaborador", {
+        body: { email: novoEmail, nome: novoNome, empresaId: novaEmpresaId, cargo: novoCargo },
+      });
+      if (error) throw error;
+      toast.success("Colaborador criado e e-mail de confirmação enviado.");
+      setCreateOpen(false);
+      setNovoNome("");
+      setNovoEmail("");
+      setNovoCargo("");
+      setNovaEmpresaId("");
+      await loadEquipe();
+    } catch (err: any) {
+      console.error(err);
+      toast.error(err.message || "Falha ao criar colaborador.");
+    } finally {
+      setCreating(false);
+    }
+  };
+
   const updateAdminForUser = async (targetUserId: string, makeAdmin: boolean) => {
     setAdminUpdating((prev) => ({ ...prev, [targetUserId]: true }));
     try {
       const rpcName = makeAdmin ? "grant_admin" : "revoke_admin";
-      const { error } = await supabase.rpc(rpcName, { target_user: targetUserId });
+      const { error } = await supabase.rpc(rpcName as any, { target_user: targetUserId });
       if (error) throw error;
 
       setAdminMap((prev) => ({ ...prev, [targetUserId]: makeAdmin }));
@@ -215,11 +260,54 @@ const Equipe = () => {
 
       <main className="container mx-auto px-4 py-8 max-w-7xl">
         <Card>
-          <CardHeader>
+          <CardHeader className="flex items-center justify-between">
             <CardTitle>Gestão de Equipe</CardTitle>
+            <Button onClick={() => setCreateOpen(true)} disabled={!isAdmin}>Adicionar colaborador</Button>
           </CardHeader>
           <CardContent>
-            <div className="rounded-md border">
+            <Dialog open={createOpen} onOpenChange={setCreateOpen}>
+              <DialogContent className="sm:max-w-[500px]">
+                <DialogHeader>
+                  <DialogTitle>Novo colaborador</DialogTitle>
+                </DialogHeader>
+                <div className="grid gap-4 py-2">
+                  <div className="grid gap-1">
+                    <label className="text-sm">Nome</label>
+                    <Input value={novoNome} onChange={(e) => setNovoNome(e.target.value)} placeholder="Nome completo" />
+                  </div>
+                  <div className="grid gap-1">
+                    <label className="text-sm">E-mail</label>
+                    <Input type="email" value={novoEmail} onChange={(e) => setNovoEmail(e.target.value)} placeholder="email@exemplo.com" />
+                  </div>
+                  <div className="grid gap-1">
+                    <label className="text-sm">Empresa</label>
+                    <Select value={novaEmpresaId} onValueChange={setNovaEmpresaId}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Selecione a empresa" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {empresas.map((empresa) => (
+                          <SelectItem key={empresa.id} value={empresa.id}>{empresa.nome}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="grid gap-1">
+                    <label className="text-sm">Cargo (opcional)</label>
+                    <Input value={novoCargo} onChange={(e) => setNovoCargo(e.target.value)} placeholder="Cargo" />
+                  </div>
+                  <div className="text-xs text-muted-foreground">
+                    A senha padrão será: <span className="font-medium">Ponto@2025</span>. Um e-mail de confirmação será enviado ao colaborador.
+                  </div>
+                  <div className="flex justify-end gap-2 pt-2">
+                    <Button variant="outline" onClick={() => setCreateOpen(false)} disabled={creating}>Cancelar</Button>
+                    <Button onClick={handleCreateColaborador} disabled={creating}>{creating ? "Criando..." : "Criar"}</Button>
+                  </div>
+                </div>
+              </DialogContent>
+            </Dialog>
+
+            <div className="rounded-md border mt-4">
               <Table>
                 <TableHeader>
                   <TableRow>
