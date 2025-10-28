@@ -199,7 +199,7 @@ export const StatusCard = ({ pontos }: StatusCardProps) => {
       workedSeconds -= Math.floor((now.getTime() - lastPauseStart.getTime()) / 1000);
     }
 
-    // Se está em pausa agora, estimar fim da pausa com 1h padrão
+    // Se está em pausa agora, estimar fim da pausa corrente
     let predictedPauseEnd: Date | null = null;
     let remainingPauseSeconds = 0;
     if (status === "pausa" && lastPauseStart) {
@@ -211,8 +211,16 @@ export const StatusCard = ({ pontos }: StatusCardProps) => {
     // Jornada alvo (derivada do profile ou 8h padrão)
     const remainingWorkSeconds = Math.max(0, dailyNetSeconds - workedSeconds);
 
-    // Pausa obrigatória: considerar o que ainda falta da pausa padrão (mesmo que ainda não tenha ocorrido).
-    // Calculamos o total de pausa já realizada até o momento para deduzir da pausa padrão.
+    // Pausa obrigatória (almoço): considerar janela fixa 12:00-13:30 e incluir o que ainda falta da pausa mesmo que não tenha ocorrido.
+    const pad = (n: number) => String(n).padStart(2, "0");
+    const buildTodayAt = (h: number, m: number) => {
+      const d = new Date();
+      d.setHours(h, m, 0, 0);
+      return d;
+    };
+    const lunchStart = buildTodayAt(12, 0);
+    const lunchEnd = buildTodayAt(13, 30);
+
     let takenPauseSeconds = 0;
     let startPauseRun: Date | null = null;
     for (const p of orderedPauses) {
@@ -228,8 +236,13 @@ export const StatusCard = ({ pontos }: StatusCardProps) => {
     }
     const remainingMandatoryPause = Math.max(0, pauseDefaultSeconds - takenPauseSeconds);
 
-    // Previsão de saída com base na jornada líquida e considerando a pausa obrigatória restante (mesmo se ainda não ocorreu).
-    const totalRemaining = remainingWorkSeconds + remainingMandatoryPause;
+    // Ajustar a previsão de fim da pausa para refletir a janela fixa do almoço quando aplicável
+    if (remainingMandatoryPause > 0 && now <= lunchEnd) {
+      predictedPauseEnd = lunchEnd;
+    }
+
+    // Previsão de saída: jornada líquida que falta + pausa obrigatória remanescente (se ainda não cumprida até 13:30)
+    const totalRemaining = remainingWorkSeconds + (now <= lunchEnd ? remainingMandatoryPause : 0);
     const predictedExit = totalRemaining > 0 ? new Date(now.getTime() + totalRemaining * 1000) : now;
 
     return { predictedPauseEnd, predictedExit, remainingWorkSeconds };
