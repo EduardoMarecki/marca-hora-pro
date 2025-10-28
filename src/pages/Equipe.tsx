@@ -394,6 +394,15 @@ const Equipe = () => {
     return entradaMin <= horarioMin + toleranciaMin;
   };
 
+  const chegouAdiantado = (entradaIso: string, horarioEntrada: string) => {
+    const entradaMin = dateStringToMinutesOfDay(entradaIso);
+    const horarioMin = timeToMinutes(horarioEntrada);
+    return entradaMin < horarioMin;
+  };
+
+  // Tolerância de pontualidade (ajustável)
+  const [pontualidadeTolerancia, setPontualidadeTolerancia] = useState<number>(15);
+
   // Funções para calcular métricas do dashboard
   const calculateMetrics = () => {
     const totalColaboradores = profiles.length;
@@ -401,7 +410,9 @@ const Equipe = () => {
     let ausentes = 0;
     let emAlmoco = 0;
     let sairam = 0;
-    let pontualidade = 0;
+    let comHorario = 0;
+    let adiantados = 0;
+    let pontuais = 0;
     let totalHorasTrabalhadas = 0;
 
     profiles.forEach((profile) => {
@@ -424,12 +435,15 @@ const Equipe = () => {
 
       // Calcular pontualidade (se tem horário de entrada definido)
       if (profile.horario_entrada) {
+        comHorario++;
         const pontos = pontosHoje[profile.id] || [];
         const primeiroEntrada = pontos.find(p => p.tipo === "entrada");
         
         if (primeiroEntrada) {
-          if (chegouPontual(primeiroEntrada.horario, profile.horario_entrada)) {
-            pontualidade++;
+          if (chegouAdiantado(primeiroEntrada.horario, profile.horario_entrada)) {
+            adiantados++;
+          } else if (chegouPontual(primeiroEntrada.horario, profile.horario_entrada, pontualidadeTolerancia)) {
+            pontuais++;
           }
         }
       }
@@ -447,7 +461,10 @@ const Equipe = () => {
       }
     });
 
-    const percentualPontualidade = totalColaboradores > 0 ? (pontualidade / totalColaboradores) * 100 : 0;
+    const basePontualidade = comHorario > 0 ? comHorario : 0;
+    const percentualPontualidade = basePontualidade > 0 ? (pontuais / basePontualidade) * 100 : 0; // no horário
+    const percentualAdiantados = basePontualidade > 0 ? (adiantados / basePontualidade) * 100 : 0;
+    const percentualPontualidadeGeral = basePontualidade > 0 ? ((adiantados + pontuais) / basePontualidade) * 100 : 0;
     const mediaHorasTrabalhadas = totalColaboradores > 0 ? totalHorasTrabalhadas / totalColaboradores : 0;
 
     return {
@@ -456,7 +473,12 @@ const Equipe = () => {
       ausentes,
       emAlmoco,
       sairam,
-      percentualPontualidade,
+      comHorario,
+      adiantados,
+      pontuais,
+      percentualPontualidade, // no horário
+      percentualAdiantados,
+      percentualPontualidadeGeral,
       mediaHorasTrabalhadas,
       totalHorasTrabalhadas
     };
@@ -470,7 +492,9 @@ const Equipe = () => {
       total: number;
       presentes: number;
       ausentes: number;
-      pontualidade: number;
+      comHorario: number;
+      pontuais: number;
+      adiantados: number;
       horasTrabalhadas: number;
     }> = {};
 
@@ -482,7 +506,9 @@ const Equipe = () => {
           total: 0,
           presentes: 0,
           ausentes: 0,
-          pontualidade: 0,
+          comHorario: 0,
+          pontuais: 0,
+          adiantados: 0,
           horasTrabalhadas: 0
         };
       }
@@ -498,12 +524,15 @@ const Equipe = () => {
 
       // Pontualidade
       if (profile.horario_entrada) {
+        cargoStats[cargo].comHorario++;
         const pontos = pontosHoje[profile.id] || [];
         const primeiroEntrada = pontos.find(p => p.tipo === "entrada");
         
         if (primeiroEntrada) {
-          if (chegouPontual(primeiroEntrada.horario, profile.horario_entrada)) {
-            cargoStats[cargo].pontualidade++;
+          if (chegouAdiantado(primeiroEntrada.horario, profile.horario_entrada)) {
+            cargoStats[cargo].adiantados++;
+          } else if (chegouPontual(primeiroEntrada.horario, profile.horario_entrada, pontualidadeTolerancia)) {
+            cargoStats[cargo].pontuais++;
           }
         }
       }
@@ -525,7 +554,8 @@ const Equipe = () => {
       cargo,
       ...stats,
       percentualPresenca: stats.total > 0 ? (stats.presentes / stats.total) * 100 : 0,
-      percentualPontualidade: stats.total > 0 ? (stats.pontualidade / stats.total) * 100 : 0,
+      percentualPontualidade: stats.comHorario > 0 ? (stats.pontuais / stats.comHorario) * 100 : 0,
+      percentualAdiantados: stats.comHorario > 0 ? (stats.adiantados / stats.comHorario) * 100 : 0,
       mediaHoras: stats.presentes > 0 ? stats.horasTrabalhadas / stats.presentes : 0
     })).sort((a, b) => b.total - a.total);
   };
@@ -570,13 +600,31 @@ const Equipe = () => {
           <CardContent>
             {/* Dashboard de Métricas */}
             <div className="mb-8">
-              <div className="flex items-center gap-2 mb-4">
-                <BarChart3 className="h-5 w-5 text-primary" />
-                <h3 className="text-lg font-semibold">Dashboard de Métricas</h3>
+              <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center gap-2">
+                  <BarChart3 className="h-5 w-5 text-primary" />
+                  <h3 className="text-lg font-semibold">Dashboard de Métricas</h3>
+                </div>
+                {/* Controle de Tolerância de Pontualidade */}
+                <div className="flex items-center gap-2">
+                  <span className="text-sm text-muted-foreground">Tolerância:</span>
+                  <Select value={String(pontualidadeTolerancia)} onValueChange={(v) => setPontualidadeTolerancia(Number(v))}>
+                    <SelectTrigger className="w-24 h-8">
+                      <SelectValue placeholder={`${pontualidadeTolerancia} min`} />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="5">5 min</SelectItem>
+                      <SelectItem value="10">10 min</SelectItem>
+                      <SelectItem value="15">15 min</SelectItem>
+                      <SelectItem value="20">20 min</SelectItem>
+                      <SelectItem value="30">30 min</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
               </div>
               
               {/* Cards de Métricas Principais */}
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 mb-6">
                 {/* Total de Colaboradores */}
                 <Card className="border-l-4 border-l-blue-500">
                   <CardContent className="p-4">
@@ -632,10 +680,28 @@ const Equipe = () => {
                           {metrics.percentualPontualidade.toFixed(0)}%
                         </p>
                         <p className="text-xs text-muted-foreground">
-                          Chegaram no horário
+                          No horário
                         </p>
                       </div>
                       <Clock className="h-8 w-8 text-orange-500" />
+                    </div>
+                  </CardContent>
+                </Card>
+
+                {/* Adiantados */}
+                <Card className="border-l-4 border-l-indigo-500">
+                  <CardContent className="p-4">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-sm font-medium text-muted-foreground">Adiantados</p>
+                        <p className="text-2xl font-bold text-indigo-600">
+                          {metrics.percentualAdiantados.toFixed(0)}%
+                        </p>
+                        <p className="text-xs text-muted-foreground">
+                          Chegaram antes do horário
+                        </p>
+                      </div>
+                      <TrendingUp className="h-8 w-8 text-indigo-500" />
                     </div>
                   </CardContent>
                 </Card>
@@ -790,7 +856,7 @@ const Equipe = () => {
                       <span className="text-sm text-gray-500">{stat.total} colaboradores</span>
                     </div>
                     
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                  <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
                       <div className="text-center">
                         <div className="text-2xl font-bold text-green-600">{stat.presentes}</div>
                         <div className="text-xs text-gray-500">Presentes</div>
@@ -803,11 +869,17 @@ const Equipe = () => {
                         <div className="text-xs text-red-600">{(100 - stat.percentualPresenca).toFixed(1)}%</div>
                       </div>
                       
-                      <div className="text-center">
-                        <div className="text-2xl font-bold text-blue-600">{stat.pontualidade}</div>
-                        <div className="text-xs text-gray-500">Pontuais</div>
-                        <div className="text-xs text-blue-600">{stat.percentualPontualidade.toFixed(1)}%</div>
-                      </div>
+                    <div className="text-center">
+                      <div className="text-2xl font-bold text-blue-600">{stat.pontuais}</div>
+                      <div className="text-xs text-gray-500">Pontuais</div>
+                      <div className="text-xs text-blue-600">{stat.percentualPontualidade.toFixed(1)}%</div>
+                    </div>
+
+                    <div className="text-center">
+                      <div className="text-2xl font-bold text-indigo-600">{stat.adiantados}</div>
+                      <div className="text-xs text-gray-500">Adiantados</div>
+                      <div className="text-xs text-indigo-600">{stat.percentualAdiantados.toFixed(1)}%</div>
+                    </div>
                       
                       <div className="text-center">
                         <div className="text-2xl font-bold text-purple-600">{stat.mediaHoras.toFixed(1)}h</div>
@@ -830,19 +902,33 @@ const Equipe = () => {
                       </div>
                     </div>
                     
-                    {/* Barra de progresso de pontualidade */}
-                    <div className="mt-2">
-                      <div className="flex justify-between text-xs text-gray-500 mb-1">
-                        <span>Pontualidade</span>
-                        <span>{stat.percentualPontualidade.toFixed(1)}%</span>
-                      </div>
-                      <div className="w-full bg-gray-200 rounded-full h-2">
-                        <div 
-                          className="bg-blue-500 h-2 rounded-full transition-all duration-300"
-                          style={{ width: `${stat.percentualPontualidade}%` }}
-                        ></div>
-                      </div>
+                  {/* Barra de progresso de pontualidade */}
+                  <div className="mt-2">
+                    <div className="flex justify-between text-xs text-gray-500 mb-1">
+                      <span>Pontualidade</span>
+                      <span>{stat.percentualPontualidade.toFixed(1)}%</span>
                     </div>
+                    <div className="w-full bg-gray-200 rounded-full h-2">
+                      <div 
+                        className="bg-blue-500 h-2 rounded-full transition-all duration-300"
+                        style={{ width: `${stat.percentualPontualidade}%` }}
+                      ></div>
+                    </div>
+                  </div>
+
+                  {/* Barra de progresso de adiantados */}
+                  <div className="mt-2">
+                    <div className="flex justify-between text-xs text-gray-500 mb-1">
+                      <span>Adiantados</span>
+                      <span>{stat.percentualAdiantados.toFixed(1)}%</span>
+                    </div>
+                    <div className="w-full bg-gray-200 rounded-full h-2">
+                      <div 
+                        className="bg-indigo-500 h-2 rounded-full transition-all duration-300"
+                        style={{ width: `${stat.percentualAdiantados}%` }}
+                      ></div>
+                    </div>
+                  </div>
                   </div>
                 ))}
                 
