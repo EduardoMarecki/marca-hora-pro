@@ -35,6 +35,8 @@ type PontoHoje = {
 
 const Equipe = () => {
   const navigate = useNavigate();
+  // Feature flag: controlar visibilidade/uso da criação de colaborador
+  const SHOW_CREATE_COLABORADOR = false;
   const [user, setUser] = useState<User | null>(null);
   const [profiles, setProfiles] = useState<Profile[]>([]);
   const [pontosHoje, setPontosHoje] = useState<Record<string, PontoHoje[]>>({});
@@ -283,50 +285,54 @@ const Equipe = () => {
         <Card>
           <CardHeader className="flex items-center justify-between">
             <CardTitle>Gestão de Equipe</CardTitle>
-            <Button onClick={() => setCreateOpen(true)}>Adicionar colaborador</Button>
+            {SHOW_CREATE_COLABORADOR && (
+              <Button onClick={() => setCreateOpen(true)}>Adicionar colaborador</Button>
+            )}
           </CardHeader>
           <CardContent>
-            <Dialog open={createOpen} onOpenChange={setCreateOpen}>
-              <DialogContent className="sm:max-w-[500px]">
-                <DialogHeader>
-                  <DialogTitle>Novo colaborador</DialogTitle>
-                </DialogHeader>
-                <div className="grid gap-4 py-2">
-                  <div className="grid gap-1">
-                    <label className="text-sm">Nome</label>
-                    <Input value={novoNome} onChange={(e) => setNovoNome(e.target.value)} placeholder="Nome completo" />
+            {SHOW_CREATE_COLABORADOR && (
+              <Dialog open={createOpen} onOpenChange={setCreateOpen}>
+                <DialogContent className="sm:max-w-[500px]">
+                  <DialogHeader>
+                    <DialogTitle>Novo colaborador</DialogTitle>
+                  </DialogHeader>
+                  <div className="grid gap-4 py-2">
+                    <div className="grid gap-1">
+                      <label className="text-sm">Nome</label>
+                      <Input value={novoNome} onChange={(e) => setNovoNome(e.target.value)} placeholder="Nome completo" />
+                    </div>
+                    <div className="grid gap-1">
+                      <label className="text-sm">E-mail</label>
+                      <Input type="email" value={novoEmail} onChange={(e) => setNovoEmail(e.target.value)} placeholder="email@exemplo.com" />
+                    </div>
+                    <div className="grid gap-1">
+                      <label className="text-sm">Empresa</label>
+                      <Select value={novaEmpresaId} onValueChange={setNovaEmpresaId}>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Selecione a empresa" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {empresas.map((empresa) => (
+                            <SelectItem key={empresa.id} value={empresa.id}>{empresa.nome}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="grid gap-1">
+                      <label className="text-sm">Cargo (opcional)</label>
+                      <Input value={novoCargo} onChange={(e) => setNovoCargo(e.target.value)} placeholder="Cargo" />
+                    </div>
+                    <div className="text-xs text-muted-foreground">
+                      A senha padrão será: <span className="font-medium">Ponto@2025</span>. Um e-mail de confirmação será enviado ao colaborador.
+                    </div>
+                    <div className="flex justify-end gap-2 pt-2">
+                      <Button variant="outline" onClick={() => setCreateOpen(false)} disabled={creating}>Cancelar</Button>
+                      <Button onClick={handleCreateColaborador} disabled={creating}>{creating ? "Criando..." : "Criar"}</Button>
+                    </div>
                   </div>
-                  <div className="grid gap-1">
-                    <label className="text-sm">E-mail</label>
-                    <Input type="email" value={novoEmail} onChange={(e) => setNovoEmail(e.target.value)} placeholder="email@exemplo.com" />
-                  </div>
-                  <div className="grid gap-1">
-                    <label className="text-sm">Empresa</label>
-                    <Select value={novaEmpresaId} onValueChange={setNovaEmpresaId}>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Selecione a empresa" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {empresas.map((empresa) => (
-                          <SelectItem key={empresa.id} value={empresa.id}>{empresa.nome}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="grid gap-1">
-                    <label className="text-sm">Cargo (opcional)</label>
-                    <Input value={novoCargo} onChange={(e) => setNovoCargo(e.target.value)} placeholder="Cargo" />
-                  </div>
-                  <div className="text-xs text-muted-foreground">
-                    A senha padrão será: <span className="font-medium">Ponto@2025</span>. Um e-mail de confirmação será enviado ao colaborador.
-                  </div>
-                  <div className="flex justify-end gap-2 pt-2">
-                    <Button variant="outline" onClick={() => setCreateOpen(false)} disabled={creating}>Cancelar</Button>
-                    <Button onClick={handleCreateColaborador} disabled={creating}>{creating ? "Criando..." : "Criar"}</Button>
-                  </div>
-                </div>
-            </DialogContent>
-          </Dialog>
+              </DialogContent>
+            </Dialog>
+            )}
 
             {/* Importação de PDF - folha de ponto */}
             <div className="mt-6">
