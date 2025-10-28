@@ -40,9 +40,10 @@ export default defineConfig(({ mode }) => ({
         name: "PontoFácil - Sistema de Controle de Ponto",
         short_name: "PontoFácil",
         description: "Sistema completo de controle de ponto para empresas",
-        // Use caminhos relativos para funcionar tanto em dev quanto em GitHub Pages (project pages)
-        start_url: "/",
-        scope: "/",
+        // Caminhos relativos garantem compatibilidade em dev (/) e em GitHub Pages (/marca-hora-pro/)
+        id: ".",
+        start_url: ".",
+        scope: ".",
         display: "standalone",
         display_override: ["window-controls-overlay", "standalone"],
         orientation: "portrait-primary",
