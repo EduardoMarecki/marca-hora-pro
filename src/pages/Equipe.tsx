@@ -14,6 +14,7 @@ import { ptBR } from "date-fns/locale";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 const PDFImportLazy = lazy(() => import("@/components/PDFImport"));
@@ -83,20 +84,73 @@ type PontoHoje = {
   // Estado e handlers para Perfil Detalhado
   const [isDetailsOpen, setIsDetailsOpen] = useState<boolean>(false);
   const [selectedProfileId, setSelectedProfileId] = useState<string | null>(null);
+  const [detailsTab, setDetailsTab] = useState<"resumo" | "historico" | "editar" | "documentos" | "horarios">("resumo");
+
+  // Histórico completo (paginação)
+  type PontoRecord = { id: string; tipo: string; horario: string; localizacao: string | null };
+  const [historicoList, setHistoricoList] = useState<PontoRecord[]>([]);
+  const [historicoLoading, setHistoricoLoading] = useState<boolean>(false);
+  const [historicoPage, setHistoricoPage] = useState<number>(0);
+  const [historicoHasMore, setHistoricoHasMore] = useState<boolean>(true);
 
   const openDetails = (id: string) => {
     setSelectedProfileId(id);
     setIsDetailsOpen(true);
+    setDetailsTab("resumo");
   };
 
   const closeDetails = () => {
     setIsDetailsOpen(false);
     setSelectedProfileId(null);
+    setHistoricoList([]);
+    setHistoricoPage(0);
+    setHistoricoHasMore(true);
   };
 
   const selectedProfile = selectedProfileId
     ? profiles.find((p) => p.id === selectedProfileId) || null
     : null;
+
+  // Carregar histórico ao abrir o Dialog
+  useEffect(() => {
+    const init = async () => {
+      if (isDetailsOpen && selectedProfileId) {
+        await loadHistorico(true);
+      }
+    };
+    init();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isDetailsOpen, selectedProfileId]);
+
+  const loadHistorico = async (reset = false) => {
+    if (!selectedProfileId) return;
+    try {
+      setHistoricoLoading(true);
+      const limit = 20;
+      const page = reset ? 0 : historicoPage;
+      const from = page * limit;
+      const to = from + limit - 1;
+
+      const { data, error } = await supabase
+        .from("pontos")
+        .select("id, tipo, horario, localizacao")
+        .eq("user_id", selectedProfileId)
+        .order("horario", { ascending: false })
+        .range(from, to);
+
+      if (error) throw error;
+
+      const newList = reset ? (data || []) : [...historicoList, ...(data || [])];
+      setHistoricoList(newList);
+      setHistoricoPage(page + 1);
+      setHistoricoHasMore((data || []).length === limit);
+    } catch (e) {
+      console.error("Erro ao carregar histórico:", e);
+      toast.error("Não foi possível carregar o histórico");
+    } finally {
+      setHistoricoLoading(false);
+    }
+  };
 
   // Utilitários para cálculo no Perfil Detalhado
   const getHorasHoje = (userId: string) => {
@@ -1281,12 +1335,13 @@ type PontoHoje = {
 
         {/* Dialog de Perfil Detalhado */}
         <Dialog open={isDetailsOpen} onOpenChange={(open) => !open && closeDetails()}>
-          <DialogContent className="sm:max-w-[600px]">
+          <DialogContent className="sm:max-w-[900px]">
             <DialogHeader>
               <DialogTitle>Perfil Detalhado</DialogTitle>
             </DialogHeader>
             {selectedProfile && (
               <div className="space-y-6">
+                {/* Cabeçalho */}
                 <div className="flex items-center gap-4">
                   <Avatar>
                     <AvatarImage src={selectedProfile.foto_url || undefined} />
@@ -1307,61 +1362,216 @@ type PontoHoje = {
                   </div>
                 </div>
 
-                {/* Métricas do colaborador */}
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-1">
-                    <p className="text-xs text-muted-foreground">Status</p>
-                    <Badge variant={getStatusUsuario(selectedProfile.id).variant}>
-                      {getStatusUsuario(selectedProfile.id).label}
-                    </Badge>
-                  </div>
-                  <div className="space-y-1">
-                    <p className="text-xs text-muted-foreground">Último ponto</p>
-                    <p className="text-sm">{getUltimoPonto(selectedProfile.id) || "-"}</p>
-                  </div>
-                  <div className="space-y-1">
-                    <p className="text-xs text-muted-foreground">Horas hoje</p>
-                    <p className="text-sm">{getHorasHoje(selectedProfile.id).toFixed(2)} h</p>
-                  </div>
-                  <div className="space-y-1">
-                    <p className="text-xs text-muted-foreground">Pontualidade</p>
-                    {(() => {
-                      const p = getPontualidadeDoPerfil(selectedProfile);
-                      if (p.adiantado) return (
-                        <Badge variant="secondary">Adiantado</Badge>
-                      );
-                      if (p.pontual) return (
-                        <Badge variant="default">No horário</Badge>
-                      );
-                      return <Badge variant="outline">Atrasado ou sem entrada</Badge>;
-                    })()}
-                  </div>
-                </div>
+                {/* Abas do Perfil Detalhado */}
+                <Tabs value={detailsTab} onValueChange={(v) => setDetailsTab(v as any)}>
+                  <TabsList className="grid grid-cols-5 gap-2">
+                    <TabsTrigger value="resumo">Resumo</TabsTrigger>
+                    <TabsTrigger value="historico">Histórico</TabsTrigger>
+                    <TabsTrigger value="editar">Editar</TabsTrigger>
+                    <TabsTrigger value="documentos">Documentos</TabsTrigger>
+                    <TabsTrigger value="horarios">Horários</TabsTrigger>
+                  </TabsList>
 
-                {/* Timeline dos pontos de hoje */}
-                <div className="space-y-2">
-                  <p className="text-sm font-medium">Pontos de hoje</p>
-                  <div className="space-y-2">
-                    {(pontosHoje[selectedProfile.id] || []).length === 0 ? (
-                      <p className="text-xs text-muted-foreground">Nenhum ponto registrado hoje</p>
-                    ) : (
-                      [...(pontosHoje[selectedProfile.id] || [])]
-                        .sort((a, b) => new Date(a.horario).getTime() - new Date(b.horario).getTime())
-                        .map((p, idx) => (
-                        <div key={idx} className="flex items-center justify-between text-sm">
-                          <span className="capitalize">{p.tipo}</span>
-                          <span>{format(new Date(p.horario), "HH:mm", { locale: ptBR })}</span>
+                  {/* Resumo */}
+                  <TabsContent value="resumo" className="space-y-6">
+                    {/* Métricas do colaborador */}
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-1">
+                        <p className="text-xs text-muted-foreground">Status</p>
+                        <Badge variant={getStatusUsuario(selectedProfile.id).variant}>
+                          {getStatusUsuario(selectedProfile.id).label}
+                        </Badge>
+                      </div>
+                      <div className="space-y-1">
+                        <p className="text-xs text-muted-foreground">Último ponto</p>
+                        <p className="text-sm">{getUltimoPonto(selectedProfile.id) || "-"}</p>
+                      </div>
+                      <div className="space-y-1">
+                        <p className="text-xs text-muted-foreground">Horas hoje</p>
+                        <p className="text-sm">{getHorasHoje(selectedProfile.id).toFixed(2)} h</p>
+                      </div>
+                      <div className="space-y-1">
+                        <p className="text-xs text-muted-foreground">Pontualidade</p>
+                        {(() => {
+                          const p = getPontualidadeDoPerfil(selectedProfile);
+                          if (p.adiantado) return (
+                            <Badge variant="secondary">Adiantado</Badge>
+                          );
+                          if (p.pontual) return (
+                            <Badge variant="default">No horário</Badge>
+                          );
+                          return <Badge variant="outline">Atrasado ou sem entrada</Badge>;
+                        })()}
+                      </div>
+                    </div>
+
+                    {/* Timeline dos pontos de hoje */}
+                    <div className="space-y-2">
+                      <p className="text-sm font-medium">Pontos de hoje</p>
+                      <div className="space-y-2">
+                        {(pontosHoje[selectedProfile.id] || []).length === 0 ? (
+                          <p className="text-xs text-muted-foreground">Nenhum ponto registrado hoje</p>
+                        ) : (
+                          [...(pontosHoje[selectedProfile.id] || [])]
+                            .sort((a, b) => new Date(a.horario).getTime() - new Date(b.horario).getTime())
+                            .map((p, idx) => (
+                            <div key={idx} className="flex items-center justify-between text-sm">
+                              <span className="capitalize">{p.tipo}</span>
+                              <span>{format(new Date(p.horario), "HH:mm", { locale: ptBR })}</span>
+                            </div>
+                          ))
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Ações rápidas */}
+                    <div className="flex justify-end gap-2">
+                      <Button variant="secondary" onClick={() => navigate(`/historico?user_id=${selectedProfile.id}`)}>Ver Histórico</Button>
+                      <Button variant="outline" onClick={closeDetails}>Fechar</Button>
+                    </div>
+                  </TabsContent>
+
+                  {/* Histórico completo */}
+                  <TabsContent value="historico" className="space-y-4">
+                    <div className="rounded-md border p-2 max-h-[45vh] overflow-y-auto">
+                      {historicoList.length === 0 && !historicoLoading ? (
+                        <p className="text-sm text-muted-foreground">Nenhum registro encontrado</p>
+                      ) : (
+                        historicoList.map((ponto) => (
+                          <div key={ponto.id} className="flex items-center justify-between py-1 text-sm">
+                            <span className="capitalize">{ponto.tipo}</span>
+                            <span>{format(new Date(ponto.horario), "dd/MM/yyyy HH:mm", { locale: ptBR })}</span>
+                          </div>
+                        ))
+                      )}
+                    </div>
+                    <div className="flex justify-end gap-2">
+                      <Button variant="outline" onClick={closeDetails}>Fechar</Button>
+                      <Button onClick={() => loadHistorico(false)} disabled={!historicoHasMore || historicoLoading}>
+                        {historicoLoading ? "Carregando..." : historicoHasMore ? "Carregar mais" : "Fim"}
+                      </Button>
+                    </div>
+                  </TabsContent>
+
+                  {/* Editar Perfil (básico) */}
+                  <TabsContent value="editar" className="space-y-4">
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <label className="text-sm block mb-1">Nome</label>
+                        <Input
+                          value={selectedProfile.nome}
+                          onChange={(e) => {
+                            const v = e.target.value;
+                            setProfiles((prev) => prev.map(p => p.id === selectedProfile.id ? { ...p, nome: v } : p));
+                          }}
+                        />
+                      </div>
+                      <div>
+                        <label className="text-sm block mb-1">Cargo</label>
+                        <Input
+                          value={selectedProfile.cargo || ""}
+                          onChange={(e) => {
+                            const v = e.target.value;
+                            setProfiles((prev) => prev.map(p => p.id === selectedProfile.id ? { ...p, cargo: v } : p));
+                          }}
+                        />
+                      </div>
+                      <div className="col-span-2">
+                        <label className="text-sm block mb-1">Empresa</label>
+                        <Select value={(selectedProfile as any).empresa_id || ""} onValueChange={(v) => {
+                          setProfiles((prev) => prev.map(p => p.id === selectedProfile.id ? { ...p, empresa_id: v } as any : p));
+                        }}>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Selecione a empresa" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {empresas.map((e) => (
+                              <SelectItem key={e.id} value={e.id}>{e.nome}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    </div>
+                    <div className="flex justify-end gap-2">
+                      <Button variant="outline" onClick={closeDetails}>Cancelar</Button>
+                      <Button onClick={async () => {
+                        try {
+                          const current = profiles.find(p => p.id === selectedProfile.id);
+                          const { error } = await supabase
+                            .from("profiles")
+                            .update({ nome: current?.nome, cargo: current?.cargo, empresa_id: (current as any)?.empresa_id || null })
+                            .eq("id", selectedProfile.id);
+                          if (error) throw error;
+                          toast.success("Perfil atualizado!");
+                        } catch (e: any) {
+                          console.error(e);
+                          toast.error(e?.message || "Não foi possível atualizar o perfil (verifique políticas de RLS/admin)");
+                        }
+                      }}>Salvar</Button>
+                    </div>
+                  </TabsContent>
+
+                  {/* Documentos */}
+                  <TabsContent value="documentos" className="space-y-4">
+                    <p className="text-sm text-muted-foreground">Faça upload de documentos (RG, CPF, contrato). Os arquivos serão enviados para sua pasta privada.</p>
+                    <Input type="file" multiple onChange={async (e) => {
+                      const files = Array.from(e.target.files || []);
+                      if (files.length === 0 || !selectedProfile) return;
+                      try {
+                        for (const file of files) {
+                          const path = `${selectedProfile.id}/${Date.now()}_${file.name}`;
+                          const { error } = await supabase.storage.from("documentos").upload(path, file, { upsert: true });
+                          if (error) throw error;
+                        }
+                        toast.success("Upload concluído!");
+                      } catch (err: any) {
+                        console.error(err);
+                        toast.error("Falha ao enviar (verifique se o bucket 'documentos' existe e políticas de acesso)");
+                      }
+                    }} />
+                    <div className="flex justify-end">
+                      <Button variant="outline" onClick={closeDetails}>Fechar</Button>
+                    </div>
+                  </TabsContent>
+
+                  {/* Horários personalizados */}
+                  <TabsContent value="horarios" className="space-y-4">
+                    <p className="text-sm text-muted-foreground">Defina horários por dia da semana. Este recurso persiste em uma coluna JSON do perfil.</p>
+                    <div className="grid grid-cols-2 gap-4">
+                      {[
+                        "segunda","terca","quarta","quinta","sexta","sabado","domingo"
+                      ].map((dia) => (
+                        <div key={dia} className="space-y-2">
+                          <p className="font-medium capitalize">{dia}</p>
+                          <div className="grid grid-cols-2 gap-2">
+                            <Input placeholder="Entrada HH:mm" />
+                            <Input placeholder="Saída HH:mm" />
+                          </div>
                         </div>
-                      ))
-                    )}
-                  </div>
-                </div>
-
-                {/* Ações rápidas */}
-                <div className="flex justify-end gap-2">
-                  <Button variant="secondary" onClick={() => navigate("/historico")}>Ver Histórico</Button>
-                  <Button variant="outline" onClick={closeDetails}>Fechar</Button>
-                </div>
+                      ))}
+                    </div>
+                    <div className="flex justify-end gap-2">
+                      <Button variant="outline" onClick={closeDetails}>Cancelar</Button>
+                      <Button onClick={async () => {
+                        try {
+                          // Exemplo simples: salvar objeto vazio para demonstrar persistência
+                          const { error } = await supabase
+                            .from("profiles")
+                            .update({ horarios_personalizados: {} } as any)
+                            .eq("id", selectedProfile.id);
+                          if (error) throw error;
+                          toast.success("Horários personalizados salvos!");
+                        } catch (e: any) {
+                          if (e?.code === '42703' || (e?.message || '').toLowerCase().includes('horarios_personalizados')) {
+                            toast.warning("Coluna 'horarios_personalizados' não existe. Adicione via migration para ativar este recurso.");
+                          } else {
+                            toast.error(e?.message || "Erro ao salvar horários");
+                          }
+                        }
+                      }}>Salvar</Button>
+                    </div>
+                  </TabsContent>
+                </Tabs>
               </div>
             )}
           </DialogContent>

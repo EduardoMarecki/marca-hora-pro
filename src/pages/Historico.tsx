@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { User } from "@supabase/supabase-js";
 import { toast } from "sonner";
@@ -33,6 +33,8 @@ const Historico = () => {
   const [pontos, setPontos] = useState<Ponto[]>([]);
   const [filteredPontos, setFilteredPontos] = useState<Ponto[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const location = useLocation();
+  const [targetUserId, setTargetUserId] = useState<string | null>(null);
   
   // Filtros
   const [dataInicio, setDataInicio] = useState("");
@@ -61,13 +63,19 @@ const Historico = () => {
     });
 
     return () => subscription.unsubscribe();
-  }, [navigate]);
+    // Capturar parâmetro de consulta user_id, se existir
+    try {
+      const params = new URLSearchParams(location.search);
+      const uid = params.get("user_id");
+      setTargetUserId(uid);
+    } catch {}
+  }, [navigate, location.search]);
 
   useEffect(() => {
     if (user) {
       loadPontos();
     }
-  }, [user, isAdmin, mostrarTodos]);
+  }, [user, isAdmin, mostrarTodos, targetUserId]);
 
   useEffect(() => {
     applyFilters();
@@ -88,9 +96,12 @@ const Historico = () => {
         `)
         .order("horario", { ascending: false });
 
-      // Por padrão, mesmo admin vê apenas os próprios registros.
-      // Só quando "mostrarTodos" estiver ativo é que buscamos todos.
-      if (!(isAdmin && mostrarTodos)) {
+      // 1) Se admin e há targetUserId -> filtra por ele
+      // 2) Senão, se admin e mostrarTodos -> sem filtro
+      // 3) Caso contrário -> filtra pelo próprio usuário
+      if (isAdmin && targetUserId) {
+        query = query.eq("user_id", targetUserId);
+      } else if (!(isAdmin && mostrarTodos)) {
         query = query.eq("user_id", user.id);
       }
 
