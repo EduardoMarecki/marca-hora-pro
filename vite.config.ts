@@ -15,6 +15,13 @@ export default defineConfig(({ mode }) => ({
     VitePWA({
       registerType: "autoUpdate",
       injectRegister: "auto",
+      // Gera automaticamente ícones PNG (192/512 e maskable) a partir do nosso SVG
+      // Isso evita manter binários no repositório e garante compatibilidade com Android/iOS
+      pwaAssets: {
+        image: "public/placeholder.svg",
+        htmlPreset: "2023",
+        includeManifestIcons: true,
+      },
       workbox: {
         globPatterns: ["**/*.{js,css,html,ico,png,svg}"],
         // Alguns bundles podem exceder 2 MiB; aumentamos o limite para evitar falha no build do Pages
@@ -41,18 +48,10 @@ export default defineConfig(({ mode }) => ({
         background_color: "#ffffff",
         theme_color: "#0ea5e9",
         icons: [
-          {
-            src: "/placeholder.svg",
-            sizes: "any",
-            type: "image/svg+xml",
-            purpose: "any"
-          },
-          {
-            src: "/favicon.ico",
-            sizes: "64x64 32x32 16x16",
-            type: "image/x-icon",
-            purpose: "any"
-          }
+          { src: "pwa-192x192.png", sizes: "192x192", type: "image/png", purpose: "any" },
+          { src: "pwa-512x512.png", sizes: "512x512", type: "image/png", purpose: "any" },
+          { src: "pwa-maskable-192x192.png", sizes: "192x192", type: "image/png", purpose: "maskable" },
+          { src: "pwa-maskable-512x512.png", sizes: "512x512", type: "image/png", purpose: "maskable" }
         ]
       }
     }),
