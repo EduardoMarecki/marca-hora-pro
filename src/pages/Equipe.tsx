@@ -15,10 +15,23 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-// Lazy load do importador de PDF para reduzir o bundle inicial da página
+
 const PDFImportLazy = lazy(() => import("@/components/PDFImport"));
 import type { TimesheetRow } from "@/lib/pdfReader";
-import { Search, Filter, X, ArrowUpDown } from "lucide-react";
+import { 
+  Search, 
+  Filter, 
+  X, 
+  ArrowUpDown, 
+  Users, 
+  UserCheck, 
+  UserX, 
+  Clock, 
+  TrendingUp, 
+  AlertTriangle,
+  Calendar,
+  BarChart3
+} from "lucide-react";
 
 type Profile = {
   id: string;
@@ -363,6 +376,162 @@ const Equipe = () => {
     return format(new Date(ultimo.horario), "HH:mm", { locale: ptBR });
   };
 
+  // Helpers de tempo para cálculo de pontualidade
+  const timeToMinutes = (hhmm: string) => {
+    const [h, m] = hhmm.split(":").map(Number);
+    return h * 60 + m;
+  };
+
+  const dateStringToMinutesOfDay = (isoString: string) => {
+    const d = new Date(isoString);
+    return d.getHours() * 60 + d.getMinutes();
+  };
+
+  const chegouPontual = (entradaIso: string, horarioEntrada: string, toleranciaMin = 15) => {
+    // Considera pontual quem chega até a tolerância após o horário ou antes do horário
+    const entradaMin = dateStringToMinutesOfDay(entradaIso);
+    const horarioMin = timeToMinutes(horarioEntrada);
+    return entradaMin <= horarioMin + toleranciaMin;
+  };
+
+  // Funções para calcular métricas do dashboard
+  const calculateMetrics = () => {
+    const totalColaboradores = profiles.length;
+    let presentes = 0;
+    let ausentes = 0;
+    let emAlmoco = 0;
+    let sairam = 0;
+    let pontualidade = 0;
+    let totalHorasTrabalhadas = 0;
+
+    profiles.forEach((profile) => {
+      const status = getStatusUsuario(profile.id);
+      
+      switch (status.label) {
+        case "Trabalhando":
+          presentes++;
+          break;
+        case "Almoço":
+          emAlmoco++;
+          break;
+        case "Saiu":
+          sairam++;
+          break;
+        case "Ausente":
+          ausentes++;
+          break;
+      }
+
+      // Calcular pontualidade (se tem horário de entrada definido)
+      if (profile.horario_entrada) {
+        const pontos = pontosHoje[profile.id] || [];
+        const primeiroEntrada = pontos.find(p => p.tipo === "entrada");
+        
+        if (primeiroEntrada) {
+          if (chegouPontual(primeiroEntrada.horario, profile.horario_entrada)) {
+            pontualidade++;
+          }
+        }
+      }
+
+      // Calcular horas trabalhadas aproximadas
+      const pontos = pontosHoje[profile.id] || [];
+      if (pontos.length >= 2) {
+        const entrada = pontos.find(p => p.tipo === "entrada");
+        const saida = pontos.filter(p => p.tipo === "saida").pop(); // Última saída
+        
+        if (entrada && saida) {
+          const horasTrabalho = (new Date(saida.horario).getTime() - new Date(entrada.horario).getTime()) / (1000 * 60 * 60);
+          totalHorasTrabalhadas += Math.max(0, horasTrabalho);
+        }
+      }
+    });
+
+    const percentualPontualidade = totalColaboradores > 0 ? (pontualidade / totalColaboradores) * 100 : 0;
+    const mediaHorasTrabalhadas = totalColaboradores > 0 ? totalHorasTrabalhadas / totalColaboradores : 0;
+
+    return {
+      totalColaboradores,
+      presentes,
+      ausentes,
+      emAlmoco,
+      sairam,
+      percentualPontualidade,
+      mediaHorasTrabalhadas,
+      totalHorasTrabalhadas
+    };
+  };
+
+  const metrics = calculateMetrics();
+
+  // Estatísticas por cargo
+  const getStatisticsByCargo = () => {
+    const cargoStats: Record<string, {
+      total: number;
+      presentes: number;
+      ausentes: number;
+      pontualidade: number;
+      horasTrabalhadas: number;
+    }> = {};
+
+    profiles.forEach((profile) => {
+      const cargo = profile.cargo || "Sem cargo";
+      
+      if (!cargoStats[cargo]) {
+        cargoStats[cargo] = {
+          total: 0,
+          presentes: 0,
+          ausentes: 0,
+          pontualidade: 0,
+          horasTrabalhadas: 0
+        };
+      }
+
+      cargoStats[cargo].total++;
+
+      const status = getStatusUsuario(profile.id);
+      if (status.label === "Trabalhando" || status.label === "Almoço") {
+        cargoStats[cargo].presentes++;
+      } else {
+        cargoStats[cargo].ausentes++;
+      }
+
+      // Pontualidade
+      if (profile.horario_entrada) {
+        const pontos = pontosHoje[profile.id] || [];
+        const primeiroEntrada = pontos.find(p => p.tipo === "entrada");
+        
+        if (primeiroEntrada) {
+          if (chegouPontual(primeiroEntrada.horario, profile.horario_entrada)) {
+            cargoStats[cargo].pontualidade++;
+          }
+        }
+      }
+
+      // Horas trabalhadas
+      const pontos = pontosHoje[profile.id] || [];
+      if (pontos.length >= 2) {
+        const entrada = pontos.find(p => p.tipo === "entrada");
+        const saida = pontos.filter(p => p.tipo === "saida").pop();
+        
+        if (entrada && saida) {
+          const horasTrabalho = (new Date(saida.horario).getTime() - new Date(entrada.horario).getTime()) / (1000 * 60 * 60);
+          cargoStats[cargo].horasTrabalhadas += Math.max(0, horasTrabalho);
+        }
+      }
+    });
+
+    return Object.entries(cargoStats).map(([cargo, stats]) => ({
+      cargo,
+      ...stats,
+      percentualPresenca: stats.total > 0 ? (stats.presentes / stats.total) * 100 : 0,
+      percentualPontualidade: stats.total > 0 ? (stats.pontualidade / stats.total) * 100 : 0,
+      mediaHoras: stats.presentes > 0 ? stats.horasTrabalhadas / stats.presentes : 0
+    })).sort((a, b) => b.total - a.total);
+  };
+
+  const cargoStatistics = getStatisticsByCargo();
+
   const handleLogout = async () => {
     try {
       await supabase.auth.signOut();
@@ -399,6 +568,293 @@ const Equipe = () => {
             )}
           </CardHeader>
           <CardContent>
+            {/* Dashboard de Métricas */}
+            <div className="mb-8">
+              <div className="flex items-center gap-2 mb-4">
+                <BarChart3 className="h-5 w-5 text-primary" />
+                <h3 className="text-lg font-semibold">Dashboard de Métricas</h3>
+              </div>
+              
+              {/* Cards de Métricas Principais */}
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+                {/* Total de Colaboradores */}
+                <Card className="border-l-4 border-l-blue-500">
+                  <CardContent className="p-4">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-sm font-medium text-muted-foreground">Total de Colaboradores</p>
+                        <p className="text-2xl font-bold text-blue-600">{metrics.totalColaboradores}</p>
+                      </div>
+                      <Users className="h-8 w-8 text-blue-500" />
+                    </div>
+                  </CardContent>
+                </Card>
+
+                {/* Presentes Hoje */}
+                <Card className="border-l-4 border-l-green-500">
+                  <CardContent className="p-4">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-sm font-medium text-muted-foreground">Presentes Hoje</p>
+                        <p className="text-2xl font-bold text-green-600">{metrics.presentes + metrics.emAlmoco}</p>
+                        <p className="text-xs text-muted-foreground">
+                          {metrics.presentes} trabalhando, {metrics.emAlmoco} almoço
+                        </p>
+                      </div>
+                      <UserCheck className="h-8 w-8 text-green-500" />
+                    </div>
+                  </CardContent>
+                </Card>
+
+                {/* Ausentes */}
+                <Card className="border-l-4 border-l-red-500">
+                  <CardContent className="p-4">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-sm font-medium text-muted-foreground">Ausentes</p>
+                        <p className="text-2xl font-bold text-red-600">{metrics.ausentes}</p>
+                        <p className="text-xs text-muted-foreground">
+                          {metrics.sairam} já saíram
+                        </p>
+                      </div>
+                      <UserX className="h-8 w-8 text-red-500" />
+                    </div>
+                  </CardContent>
+                </Card>
+
+                {/* Pontualidade */}
+                <Card className="border-l-4 border-l-orange-500">
+                  <CardContent className="p-4">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-sm font-medium text-muted-foreground">Pontualidade</p>
+                        <p className="text-2xl font-bold text-orange-600">
+                          {metrics.percentualPontualidade.toFixed(0)}%
+                        </p>
+                        <p className="text-xs text-muted-foreground">
+                          Chegaram no horário
+                        </p>
+                      </div>
+                      <Clock className="h-8 w-8 text-orange-500" />
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
+
+              {/* Cards de Métricas Secundárias */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+                {/* Horas Trabalhadas Hoje */}
+                <Card>
+                  <CardContent className="p-4">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-sm font-medium text-muted-foreground">Total de Horas Hoje</p>
+                        <p className="text-xl font-bold">{metrics.totalHorasTrabalhadas.toFixed(1)}h</p>
+                      </div>
+                      <TrendingUp className="h-6 w-6 text-primary" />
+                    </div>
+                  </CardContent>
+                </Card>
+
+                {/* Média de Horas por Colaborador */}
+                <Card>
+                  <CardContent className="p-4">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-sm font-medium text-muted-foreground">Média por Colaborador</p>
+                        <p className="text-xl font-bold">{metrics.mediaHorasTrabalhadas.toFixed(1)}h</p>
+                      </div>
+                      <Calendar className="h-6 w-6 text-primary" />
+                    </div>
+                  </CardContent>
+                </Card>
+
+                {/* Status Geral */}
+                <Card>
+                  <CardContent className="p-4">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-sm font-medium text-muted-foreground">Status Geral</p>
+                        <p className="text-xl font-bold">
+                          {metrics.ausentes > metrics.totalColaboradores * 0.3 ? (
+                            <span className="text-red-600 flex items-center gap-1">
+                              <AlertTriangle className="h-4 w-4" />
+                              Atenção
+                            </span>
+                          ) : metrics.percentualPontualidade >= 80 ? (
+                            <span className="text-green-600">Excelente</span>
+                          ) : (
+                            <span className="text-yellow-600">Bom</span>
+                          )}
+                        </p>
+                      </div>
+                      <div className={`h-6 w-6 rounded-full ${
+                        metrics.ausentes > metrics.totalColaboradores * 0.3 
+                          ? 'bg-red-500' 
+                          : metrics.percentualPontualidade >= 80 
+                            ? 'bg-green-500' 
+                            : 'bg-yellow-500'
+                      }`} />
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
+
+              {/* Distribuição por Status */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-base">Distribuição da Equipe</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <div className="w-3 h-3 bg-green-500 rounded-full"></div>
+                        <span className="text-sm">Trabalhando</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm font-medium">{metrics.presentes}</span>
+                        <div className="w-20 bg-muted rounded-full h-2">
+                          <div 
+                            className="bg-green-500 h-2 rounded-full" 
+                            style={{ width: `${metrics.totalColaboradores > 0 ? (metrics.presentes / metrics.totalColaboradores) * 100 : 0}%` }}
+                          ></div>
+                        </div>
+                      </div>
+                    </div>
+                    
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <div className="w-3 h-3 bg-yellow-500 rounded-full"></div>
+                        <span className="text-sm">Almoço</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm font-medium">{metrics.emAlmoco}</span>
+                        <div className="w-20 bg-muted rounded-full h-2">
+                          <div 
+                            className="bg-yellow-500 h-2 rounded-full" 
+                            style={{ width: `${metrics.totalColaboradores > 0 ? (metrics.emAlmoco / metrics.totalColaboradores) * 100 : 0}%` }}
+                          ></div>
+                        </div>
+                      </div>
+                    </div>
+                    
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <div className="w-3 h-3 bg-blue-500 rounded-full"></div>
+                        <span className="text-sm">Saíram</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm font-medium">{metrics.sairam}</span>
+                        <div className="w-20 bg-muted rounded-full h-2">
+                          <div 
+                            className="bg-blue-500 h-2 rounded-full" 
+                            style={{ width: `${metrics.totalColaboradores > 0 ? (metrics.sairam / metrics.totalColaboradores) * 100 : 0}%` }}
+                          ></div>
+                        </div>
+                      </div>
+                    </div>
+                    
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <div className="w-3 h-3 bg-red-500 rounded-full"></div>
+                        <span className="text-sm">Ausentes</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm font-medium">{metrics.ausentes}</span>
+                        <div className="w-20 bg-muted rounded-full h-2">
+                          <div 
+                            className="bg-red-500 h-2 rounded-full" 
+                            style={{ width: `${metrics.totalColaboradores > 0 ? (metrics.ausentes / metrics.totalColaboradores) * 100 : 0}%` }}
+                          ></div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+
+            {/* Estatísticas por Cargo */}
+            <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 mt-6">
+              <div className="flex items-center gap-2 mb-4">
+                <BarChart3 className="h-5 w-5 text-blue-600" />
+                <h3 className="text-lg font-semibold text-gray-900">Estatísticas por Cargo</h3>
+              </div>
+              
+              <div className="space-y-4">
+                {cargoStatistics.map((stat, index) => (
+                  <div key={stat.cargo} className="border border-gray-100 rounded-lg p-4">
+                    <div className="flex items-center justify-between mb-3">
+                      <h4 className="font-medium text-gray-900">{stat.cargo}</h4>
+                      <span className="text-sm text-gray-500">{stat.total} colaboradores</span>
+                    </div>
+                    
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                      <div className="text-center">
+                        <div className="text-2xl font-bold text-green-600">{stat.presentes}</div>
+                        <div className="text-xs text-gray-500">Presentes</div>
+                        <div className="text-xs text-green-600">{stat.percentualPresenca.toFixed(1)}%</div>
+                      </div>
+                      
+                      <div className="text-center">
+                        <div className="text-2xl font-bold text-red-600">{stat.ausentes}</div>
+                        <div className="text-xs text-gray-500">Ausentes</div>
+                        <div className="text-xs text-red-600">{(100 - stat.percentualPresenca).toFixed(1)}%</div>
+                      </div>
+                      
+                      <div className="text-center">
+                        <div className="text-2xl font-bold text-blue-600">{stat.pontualidade}</div>
+                        <div className="text-xs text-gray-500">Pontuais</div>
+                        <div className="text-xs text-blue-600">{stat.percentualPontualidade.toFixed(1)}%</div>
+                      </div>
+                      
+                      <div className="text-center">
+                        <div className="text-2xl font-bold text-purple-600">{stat.mediaHoras.toFixed(1)}h</div>
+                        <div className="text-xs text-gray-500">Média Horas</div>
+                        <div className="text-xs text-purple-600">por pessoa</div>
+                      </div>
+                    </div>
+                    
+                    {/* Barra de progresso de presença */}
+                    <div className="mt-3">
+                      <div className="flex justify-between text-xs text-gray-500 mb-1">
+                        <span>Presença</span>
+                        <span>{stat.percentualPresenca.toFixed(1)}%</span>
+                      </div>
+                      <div className="w-full bg-gray-200 rounded-full h-2">
+                        <div 
+                          className="bg-green-500 h-2 rounded-full transition-all duration-300"
+                          style={{ width: `${stat.percentualPresenca}%` }}
+                        ></div>
+                      </div>
+                    </div>
+                    
+                    {/* Barra de progresso de pontualidade */}
+                    <div className="mt-2">
+                      <div className="flex justify-between text-xs text-gray-500 mb-1">
+                        <span>Pontualidade</span>
+                        <span>{stat.percentualPontualidade.toFixed(1)}%</span>
+                      </div>
+                      <div className="w-full bg-gray-200 rounded-full h-2">
+                        <div 
+                          className="bg-blue-500 h-2 rounded-full transition-all duration-300"
+                          style={{ width: `${stat.percentualPontualidade}%` }}
+                        ></div>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+                
+                {cargoStatistics.length === 0 && (
+                  <div className="text-center py-8 text-gray-500">
+                    <BarChart3 className="h-12 w-12 mx-auto mb-2 opacity-50" />
+                    <p>Nenhuma estatística disponível</p>
+                  </div>
+                )}
+              </div>
+            </div>
+
             {/* Interface de Filtros e Busca */}
             <div className="space-y-4 mb-6">
               {/* Linha 1: Busca e Filtros */}
