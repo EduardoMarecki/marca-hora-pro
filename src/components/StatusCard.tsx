@@ -20,6 +20,7 @@ export const StatusCard = ({ pontos }: StatusCardProps) => {
   const [status, setStatus] = useState<"aguardando" | "trabalhando" | "pausa" | "finalizado">("aguardando");
   const [dailyNetSeconds, setDailyNetSeconds] = useState<number>(8 * 60 * 60); // padrão 8h
   const [pauseDefaultSeconds, setPauseDefaultSeconds] = useState<number>(60 * 60); // padrão 1h
+  const [scheduledExitDate, setScheduledExitDate] = useState<Date | null>(null); // saída baseada na jornada
 
   // Carregar jornada do perfil (horario_entrada, jornada_padrao) e derivar jornada líquida
   useEffect(() => {
@@ -30,7 +31,7 @@ export const StatusCard = ({ pontos }: StatusCardProps) => {
 
         const { data: profile, error } = await supabase
           .from("profiles")
-          .select("horario_entrada, jornada_padrao")
+          .select("horario_entrada, horario_saida_final, jornada_padrao")
           .eq("id", user.id)
           .single();
 
@@ -55,6 +56,19 @@ export const StatusCard = ({ pontos }: StatusCardProps) => {
           // fallback para 8h e 1h de pausa
           setDailyNetSeconds(8 * 3600);
           setPauseDefaultSeconds(60 * 60);
+        }
+
+        // Definir horário de saída agendado (com base em horario_saida_final)
+        const saidaStr: string | null = (profile?.horario_saida_final as any) || null;
+        if (saidaStr) {
+          // Aceitar formatos HH:mm ou HH:mm:ss
+          const parts = saidaStr.split(":").map((n: string) => parseInt(n, 10));
+          const [h = 17, m = 0, s = 0] = parts;
+          const d = new Date();
+          d.setHours(h, m, s, 0);
+          setScheduledExitDate(d);
+        } else {
+          setScheduledExitDate(null);
         }
       } catch {
         // manter padrões em caso de falha
@@ -210,12 +224,20 @@ export const StatusCard = ({ pontos }: StatusCardProps) => {
     // Jornada alvo (derivada do profile ou 8h padrão)
     const remainingWorkSeconds = Math.max(0, dailyNetSeconds - workedSeconds);
 
-    // Previsão de saída = agora + restante de trabalho + (restante da pausa, se estiver em pausa)
-    const totalRemaining = remainingWorkSeconds + (status === "pausa" ? remainingPauseSeconds : 0);
-    const predictedExit = totalRemaining > 0 ? new Date(now.getTime() + totalRemaining * 1000) : now;
+    // Previsão de saída baseada na jornada:
+    // 1) Se há horário de saída configurado (scheduledExitDate), usamos ele como previsão principal
+    // 2) Caso não haja, caímos no cálculo por restante de trabalho (contínuo)
+    let predictedExit: Date | null = null;
+    if (scheduledExitDate) {
+      predictedExit = new Date(scheduledExitDate);
+    } else {
+      // Fallback: agora + restante de trabalho + (restante da pausa, se estiver em pausa)
+      const totalRemaining = remainingWorkSeconds + (status === "pausa" ? remainingPauseSeconds : 0);
+      predictedExit = totalRemaining > 0 ? new Date(now.getTime() + totalRemaining * 1000) : now;
+    }
 
     return { predictedPauseEnd, predictedExit, remainingWorkSeconds };
-  }, [entrada, saida, pausas, status, dailyNetSeconds, pauseDefaultSeconds]);
+  }, [entrada, saida, pausas, status, dailyNetSeconds, pauseDefaultSeconds, scheduledExitDate]);
 
   const formatTime = (date: Date | null) => {
     if (!date) return "-";
