@@ -128,7 +128,7 @@ export const EditarPerfilDialog = ({ open, onOpenChange, user }: EditarPerfilDia
         .eq("id", user.id);
 
       // Fallback #1: se a coluna de preferências não existir no ambiente (erro 42703/column does not exist), tenta sem theme_preference/exigir_selfie
-      if (error && (error.code === '42703' || (error.message && (error.message.toLowerCase().includes('theme_preference') || error.message.toLowerCase().includes('exigir_selfie')))))) {
+      if (error && (error.code === '42703' || error.message?.toLowerCase().includes('theme_preference') || error.message?.toLowerCase().includes('exigir_selfie'))) {
         const retry = await supabase
           .from("profiles")
           .update({
@@ -149,7 +149,7 @@ export const EditarPerfilDialog = ({ open, onOpenChange, user }: EditarPerfilDia
       }
 
       // Fallback #2: se o ambiente não tiver colunas de almoço ainda, tenta salvar sem 'horario_saida_almoco' e 'horario_volta_almoco'
-      if (error && (error.code === '42703' || (error.message && (error.message.toLowerCase().includes('horario_saida_almoco') || error.message.toLowerCase().includes('horario_volta_almoco')))))) {
+      if (error && (error.code === '42703' || error.message?.toLowerCase().includes('horario_saida_almoco') || error.message?.toLowerCase().includes('horario_volta_almoco'))) {
         const retry2 = await supabase
           .from("profiles")
           .update({
