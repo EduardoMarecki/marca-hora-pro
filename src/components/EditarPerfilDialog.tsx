@@ -28,10 +28,10 @@ export const EditarPerfilDialog = ({ open, onOpenChange, user }: EditarPerfilDia
   const [cargo, setCargo] = useState("");
   const [empresaId, setEmpresaId] = useState("");
   const [tipoJornada, setTipoJornada] = useState("5x2");
-  const [horarioEntrada, setHorarioEntrada] = useState("08:00");
+  const [horarioEntrada, setHorarioEntrada] = useState("08:30");
   const [horarioSaidaAlmoco, setHorarioSaidaAlmoco] = useState("12:00");
-  const [horarioVoltaAlmoco, setHorarioVoltaAlmoco] = useState("13:00");
-  const [horarioSaidaFinal, setHorarioSaidaFinal] = useState("17:00");
+  const [horarioVoltaAlmoco, setHorarioVoltaAlmoco] = useState("13:30");
+  const [horarioSaidaFinal, setHorarioSaidaFinal] = useState("18:00");
   const [themePreference, setThemePreference] = useState<'system'|'light'|'dark'>("system");
   const [exigirSelfie, setExigirSelfie] = useState<boolean>(false);
 
@@ -73,10 +73,10 @@ export const EditarPerfilDialog = ({ open, onOpenChange, user }: EditarPerfilDia
         setCargo(data.cargo || "");
         setEmpresaId(data.empresa_id || "");
         setTipoJornada(data.tipo_jornada || "5x2");
-        setHorarioEntrada(data.horario_entrada || "08:00");
+        setHorarioEntrada(data.horario_entrada || "08:30");
         setHorarioSaidaAlmoco(data.horario_saida_almoco || "12:00");
-        setHorarioVoltaAlmoco(data.horario_volta_almoco || "13:00");
-        setHorarioSaidaFinal(data.horario_saida_final || "17:00");
+        setHorarioVoltaAlmoco(data.horario_volta_almoco || "13:30");
+        setHorarioSaidaFinal(data.horario_saida_final || "18:00");
         setThemePreference((data as any).theme_preference || 'system');
         setExigirSelfie(!!(data as any).exigir_selfie);
       }
@@ -90,6 +90,7 @@ export const EditarPerfilDialog = ({ open, onOpenChange, user }: EditarPerfilDia
 
     setLoading(true);
     try {
+      if (!ensureValidTimes()) { setLoading(false); return; }
       // Primeira tentativa: atualizar com theme_preference (ambiente com migration aplicada)
       let { error } = await supabase
         .from("profiles")
@@ -208,7 +209,11 @@ export const EditarPerfilDialog = ({ open, onOpenChange, user }: EditarPerfilDia
                 <Label htmlFor="horarioEntrada">Entrada</Label>
                 <Input
                   id="horarioEntrada"
-                  type="time"
+                  type="text"
+                  inputMode="numeric"
+                  pattern="^([01]\\d|2[0-3]):[0-5]\\d$"
+                  placeholder="HH:mm"
+                  title="Formato 24h HH:mm"
                   value={horarioEntrada}
                   onChange={(e) => setHorarioEntrada(e.target.value)}
                 />
@@ -218,7 +223,11 @@ export const EditarPerfilDialog = ({ open, onOpenChange, user }: EditarPerfilDia
                 <Label htmlFor="horarioSaidaAlmoco">Saída para Almoço</Label>
                 <Input
                   id="horarioSaidaAlmoco"
-                  type="time"
+                  type="text"
+                  inputMode="numeric"
+                  pattern="^([01]\\d|2[0-3]):[0-5]\\d$"
+                  placeholder="HH:mm"
+                  title="Formato 24h HH:mm"
                   value={horarioSaidaAlmoco}
                   onChange={(e) => setHorarioSaidaAlmoco(e.target.value)}
                 />
@@ -228,7 +237,11 @@ export const EditarPerfilDialog = ({ open, onOpenChange, user }: EditarPerfilDia
                 <Label htmlFor="horarioVoltaAlmoco">Volta do Almoço</Label>
                 <Input
                   id="horarioVoltaAlmoco"
-                  type="time"
+                  type="text"
+                  inputMode="numeric"
+                  pattern="^([01]\\d|2[0-3]):[0-5]\\d$"
+                  placeholder="HH:mm"
+                  title="Formato 24h HH:mm"
                   value={horarioVoltaAlmoco}
                   onChange={(e) => setHorarioVoltaAlmoco(e.target.value)}
                 />
@@ -238,7 +251,11 @@ export const EditarPerfilDialog = ({ open, onOpenChange, user }: EditarPerfilDia
                 <Label htmlFor="horarioSaidaFinal">Saída Final</Label>
                 <Input
                   id="horarioSaidaFinal"
-                  type="time"
+                  type="text"
+                  inputMode="numeric"
+                  pattern="^([01]\\d|2[0-3]):[0-5]\\d$"
+                  placeholder="HH:mm"
+                  title="Formato 24h HH:mm"
                   value={horarioSaidaFinal}
                   onChange={(e) => setHorarioSaidaFinal(e.target.value)}
                 />
@@ -291,3 +308,20 @@ export const EditarPerfilDialog = ({ open, onOpenChange, user }: EditarPerfilDia
     </Dialog>
   );
 };
+  const isValidHHmm = (v: string) => /^([01]\d|2[0-3]):[0-5]\d$/.test(v);
+  const ensureValidTimes = () => {
+    if (!isValidHHmm(horarioEntrada) || !isValidHHmm(horarioSaidaAlmoco) || !isValidHHmm(horarioVoltaAlmoco) || !isValidHHmm(horarioSaidaFinal)) {
+      toast.error("Use o formato 24h HH:mm em todos os campos (ex.: 08:30, 12:00, 13:30, 18:00)");
+      return false;
+    }
+    const toSec = (s: string) => { const [h,m] = s.split(":").map(Number); return h*3600+m*60; };
+    const entradaSec = toSec(horarioEntrada);
+    const almocoIniSec = toSec(horarioSaidaAlmoco);
+    const almocoFimSec = toSec(horarioVoltaAlmoco);
+    const saidaSec = toSec(horarioSaidaFinal);
+    if (almocoFimSec <= almocoIniSec) { toast.error("A volta do almoço deve ser após a saída para almoço"); return false; }
+    // Aceitar jornada que cruza meia-noite (ex.: entrada 22:00, saída 06:00)
+    const gross = (saidaSec - entradaSec + 24*3600) % (24*3600);
+    if (gross <= 0) { toast.error("Saída Final deve ser após a Entrada (considerando 24h)"); return false; }
+    return true;
+  };

@@ -19,7 +19,9 @@ export const StatusCard = ({ pontos }: StatusCardProps) => {
   const [elapsedTime, setElapsedTime] = useState<string>("00:00:00");
   const [status, setStatus] = useState<"aguardando" | "trabalhando" | "pausa" | "finalizado">("aguardando");
   const [dailyNetSeconds, setDailyNetSeconds] = useState<number>(8 * 60 * 60); // padrão 8h
-  const [pauseDefaultSeconds, setPauseDefaultSeconds] = useState<number>(90 * 60); // padrão 1h30
+  const [pauseDefaultSeconds, setPauseDefaultSeconds] = useState<number>(90 * 60); // pausa padrão 1h30
+  const [lunchStartStr, setLunchStartStr] = useState<string>("12:00");
+  const [lunchEndStr, setLunchEndStr] = useState<string>("13:30");
 
   // Carregar jornada do perfil (horario_entrada, jornada_padrao) e derivar jornada líquida
   useEffect(() => {
@@ -30,32 +32,33 @@ export const StatusCard = ({ pontos }: StatusCardProps) => {
 
         const { data: profile, error } = await supabase
           .from("profiles")
-          .select("horario_entrada, horario_saida_final, jornada_padrao")
+          .select("horario_entrada, horario_saida_final, horario_saida_almoco, horario_volta_almoco, jornada_padrao")
           .eq("id", user.id)
           .single();
 
         if (error) return; // manter padrões em caso de erro
 
-        // jornada_padrao esperado no formato HH:mm-HH:mm (ex.: 08:00-17:00)
-        const jp = (profile?.jornada_padrao as string | null) || null;
-        if (jp && jp.includes("-")) {
-          const [ini, fim] = jp.split("-");
-          const [ih, im] = ini.split(":").map(Number);
-          const [fh, fm] = fim.split(":").map(Number);
-          const startSec = ih * 3600 + im * 60;
-          const endSec = fh * 3600 + fm * 60;
-          let gross = endSec - startSec;
-          if (gross <= 0) gross += 24 * 3600; // atravessando meia-noite
-          // Assumir 1h30 de pausa padrão se nada definido explicitamente
-          const assumedPause = 90 * 60;
-          const net = Math.max(0, gross - assumedPause);
-          setDailyNetSeconds(net);
-          setPauseDefaultSeconds(assumedPause);
-        } else {
-          // fallback para 8h e 1h30 de pausa
-          setDailyNetSeconds(8 * 3600);
-          setPauseDefaultSeconds(90 * 60);
-        }
+        // Usar os campos explícitos do perfil para calcular jornada líquida e pausa obrigatória
+        const entradaStr: string = (profile?.horario_entrada as string) || "08:30";
+        const saidaFinalStr: string = (profile?.horario_saida_final as string) || "18:00";
+        const almocoIniStr: string = (profile?.horario_saida_almoco as string) || "12:00";
+        const almocoFimStr: string = (profile?.horario_volta_almoco as string) || "13:30";
+
+        setLunchStartStr(almocoIniStr);
+        setLunchEndStr(almocoFimStr);
+
+        const toSec = (s: string) => { const [h, m] = s.split(":").map(Number); return h * 3600 + m * 60; };
+        const entradaSec = toSec(entradaStr);
+        const saidaSec = toSec(saidaFinalStr);
+        const almocoIniSec = toSec(almocoIniStr);
+        const almocoFimSec = toSec(almocoFimStr);
+
+        let gross = saidaSec - entradaSec;
+        if (gross <= 0) gross += 24 * 3600; // atravessar meia-noite
+        const lunchDur = Math.max(0, almocoFimSec - almocoIniSec);
+        const net = Math.max(0, gross - lunchDur);
+        setDailyNetSeconds(net);
+        setPauseDefaultSeconds(lunchDur > 0 ? lunchDur : 90 * 60);
 
       } catch {
         // manter padrões em caso de falha
@@ -213,13 +216,11 @@ export const StatusCard = ({ pontos }: StatusCardProps) => {
 
     // Pausa obrigatória (almoço): considerar janela fixa 12:00-13:30 e incluir o que ainda falta da pausa mesmo que não tenha ocorrido.
     const pad = (n: number) => String(n).padStart(2, "0");
-    const buildTodayAt = (h: number, m: number) => {
-      const d = new Date();
-      d.setHours(h, m, 0, 0);
-      return d;
-    };
-    const lunchStart = buildTodayAt(12, 0);
-    const lunchEnd = buildTodayAt(13, 30);
+    const buildTodayAt = (h: number, m: number) => { const d = new Date(); d.setHours(h, m, 0, 0); return d; };
+    const [lsH, lsM] = lunchStartStr.split(":").map(Number);
+    const [leH, leM] = lunchEndStr.split(":").map(Number);
+    const lunchStart = buildTodayAt(lsH || 12, lsM || 0);
+    const lunchEnd = buildTodayAt(leH || 13, leM || 30);
 
     let takenPauseSeconds = 0;
     let startPauseRun: Date | null = null;
@@ -246,7 +247,7 @@ export const StatusCard = ({ pontos }: StatusCardProps) => {
     const predictedExit = totalRemaining > 0 ? new Date(now.getTime() + totalRemaining * 1000) : now;
 
     return { predictedPauseEnd, predictedExit, remainingWorkSeconds };
-  }, [entrada, saida, pausas, status, dailyNetSeconds, pauseDefaultSeconds]);
+  }, [entrada, saida, pausas, status, dailyNetSeconds, pauseDefaultSeconds, lunchStartStr, lunchEndStr]);
 
   // Formato HH:mm (digital, compacto)
   const formatHHmm = (date: Date | null) => {
