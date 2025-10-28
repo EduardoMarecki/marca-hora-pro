@@ -25,6 +25,8 @@ type Ponto = {
 };
 
 const Painel = () => {
+  // Feature flag: controlar visibilidade da seção de Análise Inteligente
+  const SHOW_ANALISE_IA = false;
   const navigate = useNavigate();
   const [session, setSession] = useState<Session | null>(null);
   const [user, setUser] = useState<User | null>(null);
@@ -198,7 +200,7 @@ const Painel = () => {
           />
         </div>
 
-        <AnaliseInteligente />
+        {SHOW_ANALISE_IA && <AnaliseInteligente />}
 
         <div className="mt-4 sm:mt-8">
           <RelatoriosGraficos userId={user?.id || ""} />
