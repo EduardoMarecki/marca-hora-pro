@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, lazy, Suspense } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Session, User } from "@supabase/supabase-js";
@@ -10,7 +10,10 @@ import { Header } from "@/components/Header";
 import { RelatorioExport } from "@/components/RelatorioExport";
 import { AlertasAutomaticos } from "@/components/AlertasAutomaticos";
 import { AnaliseInteligente } from "@/components/AnaliseInteligente";
-import { RelatoriosGraficos } from "@/components/RelatoriosGraficos";
+// Lazy load para reduzir o bundle inicial do Painel
+const RelatoriosGraficos = lazy(() =>
+  import("@/components/RelatoriosGraficos").then((m) => ({ default: m.RelatoriosGraficos }))
+);
 
 type Ponto = {
   id: string;
@@ -203,7 +206,19 @@ const Painel = () => {
         {SHOW_ANALISE_IA && <AnaliseInteligente />}
 
         <div className="mt-4 sm:mt-8">
-          <RelatoriosGraficos userId={user?.id || ""} />
+          <Suspense
+            fallback={
+              <div className="p-4 border rounded-lg bg-card text-card-foreground">
+                <div className="h-5 w-40 mb-3 bg-muted rounded animate-pulse" />
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="h-24 bg-muted rounded animate-pulse" />
+                  <div className="h-24 bg-muted rounded animate-pulse" />
+                </div>
+              </div>
+            }
+          >
+            <RelatoriosGraficos userId={user?.id || ""} />
+          </Suspense>
         </div>
       </main>
     </div>

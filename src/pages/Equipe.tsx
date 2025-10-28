@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, lazy, Suspense } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { User } from "@supabase/supabase-js";
@@ -15,7 +15,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import PDFImport from "@/components/PDFImport";
+// Lazy load do importador de PDF para reduzir o bundle inicial da página
+const PDFImportLazy = lazy(() => import("@/components/PDFImport"));
 import type { TimesheetRow } from "@/lib/pdfReader";
 
 type Profile = {
@@ -340,13 +341,22 @@ const Equipe = () => {
               <p className="text-sm text-muted-foreground mb-3">
                 Envie um PDF com texto (não escaneado) para extrair datas e horários automaticamente.
               </p>
-              <PDFImport
-                enableTimesheetParsing
-                onExtract={(data) => {
-                  setPdfRows(data.rows || []);
-                  toast.success(`${data.rows?.length || 0} linhas identificadas no PDF.`);
-                }}
-              />
+              <Suspense
+                fallback={
+                  <div className="p-3 border rounded bg-card text-card-foreground">
+                    <div className="h-5 w-32 mb-2 bg-muted rounded animate-pulse" />
+                    <div className="h-24 bg-muted rounded animate-pulse" />
+                  </div>
+                }
+              >
+                <PDFImportLazy
+                  enableTimesheetParsing
+                  onExtract={(data) => {
+                    setPdfRows(data.rows || []);
+                    toast.success(`${data.rows?.length || 0} linhas identificadas no PDF.`);
+                  }}
+                />
+              </Suspense>
             </div>
 
             <div className="rounded-md border mt-4">
