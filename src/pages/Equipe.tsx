@@ -319,7 +319,8 @@ type PontoHoje = {
       const { data: pontosData, error: pontosError } = await supabase
         .from("pontos")
         .select("user_id, tipo, horario")
-        .gte("horario", today.toISOString());
+        .gte("horario", today.toISOString())
+        .order("horario", { ascending: true });
 
       if (pontosError) throw pontosError;
 
@@ -404,10 +405,14 @@ type PontoHoje = {
     
     const ultimoPonto = pontos[pontos.length - 1];
     
-    if (ultimoPonto.tipo === "entrada" || ultimoPonto.tipo === "volta_almoco") {
+    if (
+      ultimoPonto.tipo === "entrada" ||
+      ultimoPonto.tipo === "volta_almoco" ||
+      ultimoPonto.tipo === "pausa_fim"
+    ) {
       return { label: "Trabalhando", variant: "default" as const };
     }
-    if (ultimoPonto.tipo === "saida_almoco") {
+    if (ultimoPonto.tipo === "saida_almoco" || ultimoPonto.tipo === "pausa_inicio") {
       return { label: "Almoço", variant: "secondary" as const };
     }
     if (ultimoPonto.tipo === "saida") {
@@ -1340,7 +1345,9 @@ type PontoHoje = {
                     {(pontosHoje[selectedProfile.id] || []).length === 0 ? (
                       <p className="text-xs text-muted-foreground">Nenhum ponto registrado hoje</p>
                     ) : (
-                      (pontosHoje[selectedProfile.id] || []).map((p, idx) => (
+                      [...(pontosHoje[selectedProfile.id] || [])]
+                        .sort((a, b) => new Date(a.horario).getTime() - new Date(b.horario).getTime())
+                        .map((p, idx) => (
                         <div key={idx} className="flex items-center justify-between text-sm">
                           <span className="capitalize">{p.tipo}</span>
                           <span>{format(new Date(p.horario), "HH:mm", { locale: ptBR })}</span>
