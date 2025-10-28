@@ -20,7 +20,6 @@ export const StatusCard = ({ pontos }: StatusCardProps) => {
   const [status, setStatus] = useState<"aguardando" | "trabalhando" | "pausa" | "finalizado">("aguardando");
   const [dailyNetSeconds, setDailyNetSeconds] = useState<number>(8 * 60 * 60); // padrão 8h
   const [pauseDefaultSeconds, setPauseDefaultSeconds] = useState<number>(60 * 60); // padrão 1h
-  const [scheduledExitDate, setScheduledExitDate] = useState<Date | null>(null); // saída baseada na jornada
 
   // Carregar jornada do perfil (horario_entrada, jornada_padrao) e derivar jornada líquida
   useEffect(() => {
@@ -58,18 +57,6 @@ export const StatusCard = ({ pontos }: StatusCardProps) => {
           setPauseDefaultSeconds(60 * 60);
         }
 
-        // Definir horário de saída agendado (com base em horario_saida_final)
-        const saidaStr: string | null = (profile?.horario_saida_final as any) || null;
-        if (saidaStr) {
-          // Aceitar formatos HH:mm ou HH:mm:ss
-          const parts = saidaStr.split(":").map((n: string) => parseInt(n, 10));
-          const [h = 17, m = 0, s = 0] = parts;
-          const d = new Date();
-          d.setHours(h, m, s, 0);
-          setScheduledExitDate(d);
-        } else {
-          setScheduledExitDate(null);
-        }
       } catch {
         // manter padrões em caso de falha
       }
@@ -224,24 +211,29 @@ export const StatusCard = ({ pontos }: StatusCardProps) => {
     // Jornada alvo (derivada do profile ou 8h padrão)
     const remainingWorkSeconds = Math.max(0, dailyNetSeconds - workedSeconds);
 
-    // Previsão de saída baseada na jornada:
-    // 1) Se há horário de saída configurado (scheduledExitDate), usamos ele como previsão principal
-    // 2) Caso não haja, caímos no cálculo por restante de trabalho (contínuo)
-    let predictedExit: Date | null = null;
-    if (scheduledExitDate) {
-      predictedExit = new Date(scheduledExitDate);
-    } else {
-      // Fallback: agora + restante de trabalho + (restante da pausa, se estiver em pausa)
-      const totalRemaining = remainingWorkSeconds + (status === "pausa" ? remainingPauseSeconds : 0);
-      predictedExit = totalRemaining > 0 ? new Date(now.getTime() + totalRemaining * 1000) : now;
-    }
+    // Previsão de saída com base na jornada líquida (derivada de jornada_padrao) e tempo já trabalhado.
+    // Agora + restante de trabalho + (restante da pausa, se estiver em pausa)
+    const totalRemaining = remainingWorkSeconds + (status === "pausa" ? remainingPauseSeconds : 0);
+    const predictedExit = totalRemaining > 0 ? new Date(now.getTime() + totalRemaining * 1000) : now;
 
     return { predictedPauseEnd, predictedExit, remainingWorkSeconds };
-  }, [entrada, saida, pausas, status, dailyNetSeconds, pauseDefaultSeconds, scheduledExitDate]);
+  }, [entrada, saida, pausas, status, dailyNetSeconds, pauseDefaultSeconds]);
 
-  const formatTime = (date: Date | null) => {
+  // Formato digital internacional (ISO 8601) em horário local: YYYY-MM-DDTHH:mm±hh:mm
+  const formatISO = (date: Date | null) => {
     if (!date) return "-";
-    return date.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit", hour12: false });
+    const pad = (n: number) => String(n).padStart(2, "0");
+    const year = date.getFullYear();
+    const month = pad(date.getMonth() + 1);
+    const day = pad(date.getDate());
+    const hours = pad(date.getHours());
+    const minutes = pad(date.getMinutes());
+    const tz = -date.getTimezoneOffset(); // minutes east of UTC
+    const sign = tz >= 0 ? "+" : "-";
+    const tzAbs = Math.abs(tz);
+    const tzH = pad(Math.floor(tzAbs / 60));
+    const tzM = pad(tzAbs % 60);
+    return `${year}-${month}-${day}T${hours}:${minutes}${sign}${tzH}:${tzM}`;
   };
 
   const getStatusBadge = () => {
@@ -298,7 +290,7 @@ export const StatusCard = ({ pontos }: StatusCardProps) => {
                   <div className="text-xs sm:text-sm text-muted-foreground flex items-center justify-center gap-2">
                     <Timer className="h-4 w-4" />
                     <span>Previsão fim da pausa:</span>
-                    <span className="font-medium text-foreground">{formatTime(predictedPauseEnd)}</span>
+                    <span className="font-medium text-foreground">{formatISO(predictedPauseEnd)}</span>
                   </div>
                 )}
                 <div className="flex items-center justify-center">
@@ -307,7 +299,7 @@ export const StatusCard = ({ pontos }: StatusCardProps) => {
                 <div className="text-xs sm:text-sm text-muted-foreground flex items-center justify-center gap-2">
                   <Clock className="h-4 w-4" />
                   <span>Previsão de saída:</span>
-                  <span className="font-medium text-foreground">{formatTime(predictedExit)}</span>
+                  <span className="font-medium text-foreground">{formatISO(predictedExit)}</span>
                 </div>
                 {remainingWorkSeconds === 0 && (
                   <div className="text-[11px] sm:text-xs text-accent-foreground bg-accent/20 inline-block px-2 py-1 rounded-md mt-1">
