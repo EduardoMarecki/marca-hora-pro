@@ -30,7 +30,11 @@ import {
   TrendingUp, 
   AlertTriangle,
   Calendar,
-  BarChart3
+  BarChart3,
+  Info,
+  User as UserIcon,
+  Mail,
+  Building
 } from "lucide-react";
 
 type Profile = {
@@ -48,7 +52,7 @@ type PontoHoje = {
   horario: string;
 };
 
-const Equipe = () => {
+  const Equipe = () => {
   const navigate = useNavigate();
   // Feature flag: controlar visibilidade/uso da criação de colaborador
   const SHOW_CREATE_COLABORADOR = false;
@@ -75,6 +79,51 @@ const Equipe = () => {
   const [filterStatus, setFilterStatus] = useState<string>("all");
   const [sortBy, setSortBy] = useState<string>("nome");
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">("asc");
+
+  // Estado e handlers para Perfil Detalhado
+  const [isDetailsOpen, setIsDetailsOpen] = useState<boolean>(false);
+  const [selectedProfileId, setSelectedProfileId] = useState<string | null>(null);
+
+  const openDetails = (id: string) => {
+    setSelectedProfileId(id);
+    setIsDetailsOpen(true);
+  };
+
+  const closeDetails = () => {
+    setIsDetailsOpen(false);
+    setSelectedProfileId(null);
+  };
+
+  const selectedProfile = selectedProfileId
+    ? profiles.find((p) => p.id === selectedProfileId) || null
+    : null;
+
+  // Utilitários para cálculo no Perfil Detalhado
+  const getHorasHoje = (userId: string) => {
+    const pontos = pontosHoje[userId] || [];
+    const entrada = pontos.find((p) => p.tipo === "entrada");
+    const saida = pontos.filter((p) => p.tipo === "saida").pop();
+    if (!entrada || !saida) return 0;
+    const diff =
+      (new Date(saida.horario).getTime() - new Date(entrada.horario).getTime()) /
+      (1000 * 60 * 60);
+    return Math.max(0, diff);
+  };
+
+  const getPontualidadeDoPerfil = (profile: Profile) => {
+    if (!profile.horario_entrada) return { adiantado: false, pontual: false };
+    const pontos = pontosHoje[profile.id] || [];
+    const primeiroEntrada = pontos.find((p) => p.tipo === "entrada");
+    if (!primeiroEntrada) return { adiantado: false, pontual: false };
+    const adiantado = chegouAdiantado(primeiroEntrada.horario, profile.horario_entrada);
+    const pontual = !adiantado &&
+      chegouPontual(
+        primeiroEntrada.horario,
+        profile.horario_entrada,
+        pontualidadeTolerancia
+      );
+    return { adiantado, pontual };
+  };
 
   const { isAdmin, isLoading: roleLoading } = useUserRole(user);
 
@@ -1150,7 +1199,7 @@ const Equipe = () => {
                         )}
                       </div>
                     </TableHead>
-                    <TableHead>Admin</TableHead>
+                    <TableHead>Ações</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -1198,7 +1247,10 @@ const Equipe = () => {
                           </TableCell>
                           <TableCell>{ultimoPonto || "-"}</TableCell>
                           <TableCell className="text-center">{totalPontos}</TableCell>
-                          <TableCell>
+                          <TableCell className="space-x-2">
+                            <Button variant="outline" size="sm" onClick={() => openDetails(profile.id)}>
+                              <Info className="h-4 w-4 mr-1" /> Detalhes
+                            </Button>
                             <Button
                               variant={adminMap[profile.id] ? "destructive" : "default"}
                               size="sm"
@@ -1221,6 +1273,92 @@ const Equipe = () => {
             </div>
           </CardContent>
         </Card>
+
+        {/* Dialog de Perfil Detalhado */}
+        <Dialog open={isDetailsOpen} onOpenChange={(open) => !open && closeDetails()}>
+          <DialogContent className="sm:max-w-[600px]">
+            <DialogHeader>
+              <DialogTitle>Perfil Detalhado</DialogTitle>
+            </DialogHeader>
+            {selectedProfile && (
+              <div className="space-y-6">
+                <div className="flex items-center gap-4">
+                  <Avatar>
+                    <AvatarImage src={selectedProfile.foto_url || undefined} />
+                    <AvatarFallback>
+                      {selectedProfile.nome.substring(0, 2).toUpperCase()}
+                    </AvatarFallback>
+                  </Avatar>
+                  <div>
+                    <p className="font-semibold flex items-center gap-2">
+                      <UserIcon className="h-4 w-4" /> {selectedProfile.nome}
+                    </p>
+                    <p className="text-sm text-muted-foreground flex items-center gap-2">
+                      <Mail className="h-4 w-4" /> {selectedProfile.email}
+                    </p>
+                    <p className="text-sm text-muted-foreground flex items-center gap-2">
+                      <Building className="h-4 w-4" /> {selectedProfile.cargo || "-"}
+                    </p>
+                  </div>
+                </div>
+
+                {/* Métricas do colaborador */}
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-1">
+                    <p className="text-xs text-muted-foreground">Status</p>
+                    <Badge variant={getStatusUsuario(selectedProfile.id).variant}>
+                      {getStatusUsuario(selectedProfile.id).label}
+                    </Badge>
+                  </div>
+                  <div className="space-y-1">
+                    <p className="text-xs text-muted-foreground">Último ponto</p>
+                    <p className="text-sm">{getUltimoPonto(selectedProfile.id) || "-"}</p>
+                  </div>
+                  <div className="space-y-1">
+                    <p className="text-xs text-muted-foreground">Horas hoje</p>
+                    <p className="text-sm">{getHorasHoje(selectedProfile.id).toFixed(2)} h</p>
+                  </div>
+                  <div className="space-y-1">
+                    <p className="text-xs text-muted-foreground">Pontualidade</p>
+                    {(() => {
+                      const p = getPontualidadeDoPerfil(selectedProfile);
+                      if (p.adiantado) return (
+                        <Badge variant="secondary">Adiantado</Badge>
+                      );
+                      if (p.pontual) return (
+                        <Badge variant="default">No horário</Badge>
+                      );
+                      return <Badge variant="outline">Atrasado ou sem entrada</Badge>;
+                    })()}
+                  </div>
+                </div>
+
+                {/* Timeline dos pontos de hoje */}
+                <div className="space-y-2">
+                  <p className="text-sm font-medium">Pontos de hoje</p>
+                  <div className="space-y-2">
+                    {(pontosHoje[selectedProfile.id] || []).length === 0 ? (
+                      <p className="text-xs text-muted-foreground">Nenhum ponto registrado hoje</p>
+                    ) : (
+                      (pontosHoje[selectedProfile.id] || []).map((p, idx) => (
+                        <div key={idx} className="flex items-center justify-between text-sm">
+                          <span className="capitalize">{p.tipo}</span>
+                          <span>{format(new Date(p.horario), "HH:mm", { locale: ptBR })}</span>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                </div>
+
+                {/* Ações rápidas */}
+                <div className="flex justify-end gap-2">
+                  <Button variant="secondary" onClick={() => navigate("/historico")}>Ver Histórico</Button>
+                  <Button variant="outline" onClick={closeDetails}>Fechar</Button>
+                </div>
+              </div>
+            )}
+          </DialogContent>
+        </Dialog>
       </main>
     </div>
   );
