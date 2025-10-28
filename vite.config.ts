@@ -37,16 +37,19 @@ export default defineConfig(({ mode }) => ({
         "placeholder.svg"
       ],
       manifest: {
-        name: "PontoFácil",
+        name: "PontoFácil - Sistema de Controle de Ponto",
         short_name: "PontoFácil",
-        description: "Sistema de Controle de Ponto",
+        description: "Sistema completo de controle de ponto para empresas",
         // Use caminhos relativos para funcionar tanto em dev quanto em GitHub Pages (project pages)
-        start_url: ".",
-        scope: ".",
+        start_url: "/",
+        scope: "/",
         display: "standalone",
+        display_override: ["window-controls-overlay", "standalone"],
+        orientation: "portrait-primary",
         lang: "pt-BR",
         background_color: "#ffffff",
         theme_color: "#0ea5e9",
+        categories: ["business", "productivity"],
         icons: [
           { src: "pwa-192x192.png", sizes: "192x192", type: "image/png", purpose: "any" },
           { src: "pwa-512x512.png", sizes: "512x512", type: "image/png", purpose: "any" },
