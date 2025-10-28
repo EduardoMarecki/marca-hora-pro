@@ -93,6 +93,68 @@ type PontoHoje = {
   const [historicoPage, setHistoricoPage] = useState<number>(0);
   const [historicoHasMore, setHistoricoHasMore] = useState<boolean>(true);
 
+  // Documentos (Storage)
+  type DocItem = { name: string; created_at?: string; updated_at?: string; last_accessed_at?: string; size?: number };
+  const [docs, setDocs] = useState<DocItem[]>([]);
+  const [docsLoading, setDocsLoading] = useState<boolean>(false);
+
+  const loadDocumentos = async () => {
+    if (!selectedProfileId) return;
+    setDocsLoading(true);
+    try {
+      const { data, error } = await supabase.storage
+        .from("documentos")
+        .list(selectedProfileId, { limit: 100, sortBy: { column: "name", order: "asc" } });
+      if (error) throw error;
+      setDocs((data || []).map((d: any) => ({
+        name: d.name,
+        created_at: d.created_at,
+        updated_at: d.updated_at,
+        last_accessed_at: d.last_accessed_at,
+        size: d.size,
+      })));
+    } catch (e: any) {
+      console.error(e);
+      toast.error(e?.message || "Erro ao listar documentos");
+    } finally {
+      setDocsLoading(false);
+    }
+  };
+
+  const downloadDocumento = async (name: string) => {
+    if (!selectedProfileId) return;
+    try {
+      const { data, error } = await supabase.storage
+        .from("documentos")
+        .createSignedUrl(`${selectedProfileId}/${name}`, 60 * 60);
+      if (error) throw error;
+      const url = (data as any)?.signedUrl;
+      if (url) {
+        window.open(url, "_blank");
+      } else {
+        toast.error("Não foi possível gerar o link do arquivo");
+      }
+    } catch (e: any) {
+      console.error(e);
+      toast.error(e?.message || "Falha ao gerar link assinado");
+    }
+  };
+
+  const deleteDocumento = async (name: string) => {
+    if (!selectedProfileId) return;
+    try {
+      const { error } = await supabase.storage
+        .from("documentos")
+        .remove([`${selectedProfileId}/${name}`]);
+      if (error) throw error;
+      toast.success("Arquivo excluído");
+      await loadDocumentos();
+    } catch (e: any) {
+      console.error(e);
+      toast.error(e?.message || "Falha ao excluir o arquivo");
+    }
+  };
+
   const openDetails = (id: string) => {
     setSelectedProfileId(id);
     setIsDetailsOpen(true);
@@ -121,6 +183,14 @@ type PontoHoje = {
     init();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isDetailsOpen, selectedProfileId]);
+
+  // Carregar documentos quando a aba Documentos for aberta
+  useEffect(() => {
+    if (isDetailsOpen && selectedProfileId && detailsTab === "documentos") {
+      loadDocumentos();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isDetailsOpen, selectedProfileId, detailsTab]);
 
   const loadHistorico = async (reset = false) => {
     if (!selectedProfileId) return;
@@ -1524,11 +1594,42 @@ type PontoHoje = {
                           if (error) throw error;
                         }
                         toast.success("Upload concluído!");
+                        await loadDocumentos();
                       } catch (err: any) {
                         console.error(err);
                         toast.error("Falha ao enviar (verifique se o bucket 'documentos' existe e políticas de acesso)");
                       }
                     }} />
+                    <div className="flex items-center justify-between">
+                      <p className="text-sm text-muted-foreground">Arquivos enviados</p>
+                      <div className="flex gap-2">
+                        <Button variant="outline" onClick={loadDocumentos} disabled={docsLoading}>
+                          {docsLoading ? "Atualizando..." : "Atualizar lista"}
+                        </Button>
+                      </div>
+                    </div>
+                    {docsLoading ? (
+                      <p className="text-sm text-muted-foreground">Carregando documentos...</p>
+                    ) : docs.length === 0 ? (
+                      <p className="text-sm">Nenhum documento enviado.</p>
+                    ) : (
+                      <div className="space-y-2">
+                        {docs.map((d) => (
+                          <div key={d.name} className="flex items-center justify-between border rounded-md p-2">
+                            <div className="flex flex-col">
+                              <span className="text-sm font-medium">{d.name}</span>
+                              {d.size !== undefined && (
+                                <span className="text-xs text-muted-foreground">{(d.size / 1024).toFixed(1)} KB</span>
+                              )}
+                            </div>
+                            <div className="flex gap-2">
+                              <Button size="sm" variant="outline" onClick={() => downloadDocumento(d.name)}>Baixar</Button>
+                              <Button size="sm" variant="destructive" onClick={() => deleteDocumento(d.name)}>Excluir</Button>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
                     <div className="flex justify-end">
                       <Button variant="outline" onClick={closeDetails}>Fechar</Button>
                     </div>
