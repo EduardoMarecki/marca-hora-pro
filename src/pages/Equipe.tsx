@@ -179,7 +179,16 @@ const Equipe = () => {
       const { data, error } = await supabase.functions.invoke("criar-colaborador", {
         body: { email: novoEmail, nome: novoNome, empresaId: novaEmpresaId, cargo: novoCargo },
       });
-      if (error) throw error;
+      if (error) {
+        // Extrair detalhe útil do erro do Edge Function
+        const ctx: any = (error as any).context;
+        const serverMsg = ctx?.error || ctx?.message || (error as any).message;
+        const friendly =
+          serverMsg === "Unauthorized" ? "Sessão expirada ou ausente. Faça login novamente." :
+          serverMsg === "Forbidden" ? "Ação permitida apenas para administradores." :
+          serverMsg || "Falha ao criar colaborador.";
+        throw new Error(friendly);
+      }
       toast.success("Colaborador criado e e-mail de confirmação enviado.");
       setCreateOpen(false);
       setNovoNome("");
