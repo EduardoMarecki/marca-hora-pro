@@ -18,6 +18,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 // Lazy load do importador de PDF para reduzir o bundle inicial da página
 const PDFImportLazy = lazy(() => import("@/components/PDFImport"));
 import type { TimesheetRow } from "@/lib/pdfReader";
+import { Search, Filter, X, ArrowUpDown } from "lucide-react";
 
 type Profile = {
   id: string;
@@ -40,6 +41,7 @@ const Equipe = () => {
   const SHOW_CREATE_COLABORADOR = false;
   const [user, setUser] = useState<User | null>(null);
   const [profiles, setProfiles] = useState<Profile[]>([]);
+  const [filteredProfiles, setFilteredProfiles] = useState<Profile[]>([]);
   const [pontosHoje, setPontosHoje] = useState<Record<string, PontoHoje[]>>({});
   const [isLoading, setIsLoading] = useState(true);
   const [adminMap, setAdminMap] = useState<Record<string, boolean>>({});
@@ -53,6 +55,13 @@ const Equipe = () => {
   const [creating, setCreating] = useState(false);
   const [isAdminDb, setIsAdminDb] = useState<boolean>(false);
   const [pdfRows, setPdfRows] = useState<TimesheetRow[]>([]);
+
+  // Estados para filtros e busca
+  const [searchTerm, setSearchTerm] = useState("");
+  const [filterCargo, setFilterCargo] = useState<string>("all");
+  const [filterStatus, setFilterStatus] = useState<string>("all");
+  const [sortBy, setSortBy] = useState<string>("nome");
+  const [sortOrder, setSortOrder] = useState<"asc" | "desc">("asc");
 
   const { isAdmin, isLoading: roleLoading } = useUserRole(user);
 
@@ -109,6 +118,105 @@ const Equipe = () => {
 
     verifyAndLoad();
   }, [user, roleLoading, navigate]);
+
+  // useEffect para aplicar filtros sempre que os dados ou filtros mudarem
+  useEffect(() => {
+    applyFilters();
+  }, [profiles, searchTerm, filterCargo, filterStatus, sortBy, sortOrder, pontosHoje]);
+
+  // Função para aplicar filtros e busca
+  const applyFilters = () => {
+    let filtered = [...profiles];
+
+    // Aplicar busca por nome/email
+    if (searchTerm.trim()) {
+      const term = searchTerm.toLowerCase().trim();
+      filtered = filtered.filter(profile => 
+        profile.nome.toLowerCase().includes(term) || 
+        profile.email.toLowerCase().includes(term)
+      );
+    }
+
+    // Aplicar filtro por cargo
+    if (filterCargo !== "all") {
+      filtered = filtered.filter(profile => {
+        if (filterCargo === "sem-cargo") {
+          return !profile.cargo || profile.cargo.trim() === "";
+        }
+        return profile.cargo === filterCargo;
+      });
+    }
+
+    // Aplicar filtro por status
+    if (filterStatus !== "all") {
+      filtered = filtered.filter(profile => {
+        const status = getStatusUsuario(profile.id);
+        return status.label.toLowerCase() === filterStatus.toLowerCase();
+      });
+    }
+
+    // Aplicar ordenação
+    filtered.sort((a, b) => {
+      let valueA: any, valueB: any;
+
+      switch (sortBy) {
+        case "nome":
+          valueA = a.nome.toLowerCase();
+          valueB = b.nome.toLowerCase();
+          break;
+        case "cargo":
+          valueA = (a.cargo || "").toLowerCase();
+          valueB = (b.cargo || "").toLowerCase();
+          break;
+        case "ultimo-registro":
+          valueA = getUltimoPonto(a.id) || "00:00";
+          valueB = getUltimoPonto(b.id) || "00:00";
+          break;
+        case "total-pontos":
+          valueA = pontosHoje[a.id]?.length || 0;
+          valueB = pontosHoje[b.id]?.length || 0;
+          break;
+        default:
+          valueA = a.nome.toLowerCase();
+          valueB = b.nome.toLowerCase();
+      }
+
+      if (valueA < valueB) return sortOrder === "asc" ? -1 : 1;
+      if (valueA > valueB) return sortOrder === "asc" ? 1 : -1;
+      return 0;
+    });
+
+    setFilteredProfiles(filtered);
+  };
+
+  // Função para limpar todos os filtros
+  const clearFilters = () => {
+    setSearchTerm("");
+    setFilterCargo("all");
+    setFilterStatus("all");
+    setSortBy("nome");
+    setSortOrder("asc");
+  };
+
+  // Função para obter lista única de cargos
+  const getUniqueCargos = () => {
+    const cargos = profiles
+      .map(p => p.cargo)
+      .filter(cargo => cargo && cargo.trim() !== "")
+      .filter((cargo, index, arr) => arr.indexOf(cargo) === index)
+      .sort();
+    return cargos;
+  };
+
+  // Função para alternar ordenação
+  const toggleSort = (field: string) => {
+    if (sortBy === field) {
+      setSortOrder(sortOrder === "asc" ? "desc" : "asc");
+    } else {
+      setSortBy(field);
+      setSortOrder("asc");
+    }
+  };
 
   const loadEquipe = async () => {
     try {
@@ -291,6 +399,97 @@ const Equipe = () => {
             )}
           </CardHeader>
           <CardContent>
+            {/* Interface de Filtros e Busca */}
+            <div className="space-y-4 mb-6">
+              {/* Linha 1: Busca e Filtros */}
+              <div className="flex flex-col sm:flex-row gap-4">
+                {/* Campo de Busca */}
+                <div className="relative flex-1">
+                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
+                  <Input
+                    placeholder="Buscar por nome ou email..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className="pl-10"
+                  />
+                </div>
+
+                {/* Filtro por Cargo */}
+                <Select value={filterCargo} onValueChange={setFilterCargo}>
+                  <SelectTrigger className="w-full sm:w-48">
+                    <SelectValue placeholder="Filtrar por cargo" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Todos os cargos</SelectItem>
+                    <SelectItem value="sem-cargo">Sem cargo</SelectItem>
+                    {getUniqueCargos().map((cargo) => (
+                      <SelectItem key={cargo} value={cargo}>{cargo}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+
+                {/* Filtro por Status */}
+                <Select value={filterStatus} onValueChange={setFilterStatus}>
+                  <SelectTrigger className="w-full sm:w-48">
+                    <SelectValue placeholder="Filtrar por status" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Todos os status</SelectItem>
+                    <SelectItem value="trabalhando">Trabalhando</SelectItem>
+                    <SelectItem value="almoço">Almoço</SelectItem>
+                    <SelectItem value="saiu">Saiu</SelectItem>
+                    <SelectItem value="ausente">Ausente</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* Linha 2: Ordenação e Ações */}
+              <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+                {/* Ordenação */}
+                <div className="flex items-center gap-2">
+                  <Filter className="h-4 w-4 text-muted-foreground" />
+                  <span className="text-sm text-muted-foreground">Ordenar por:</span>
+                  <Select value={sortBy} onValueChange={setSortBy}>
+                    <SelectTrigger className="w-40">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="nome">Nome</SelectItem>
+                      <SelectItem value="cargo">Cargo</SelectItem>
+                      <SelectItem value="ultimo-registro">Último Registro</SelectItem>
+                      <SelectItem value="total-pontos">Total de Pontos</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setSortOrder(sortOrder === "asc" ? "desc" : "asc")}
+                    className="px-2"
+                  >
+                    <ArrowUpDown className="h-4 w-4" />
+                  </Button>
+                </div>
+
+                {/* Contador e Limpar Filtros */}
+                <div className="flex items-center gap-4">
+                  <span className="text-sm text-muted-foreground">
+                    {filteredProfiles.length} de {profiles.length} colaboradores
+                  </span>
+                  {(searchTerm || filterCargo !== "all" || filterStatus !== "all" || sortBy !== "nome" || sortOrder !== "asc") && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={clearFilters}
+                      className="flex items-center gap-2"
+                    >
+                      <X className="h-4 w-4" />
+                      Limpar Filtros
+                    </Button>
+                  )}
+                </div>
+              </div>
+            </div>
+
             {SHOW_CREATE_COLABORADOR && (
               <Dialog open={createOpen} onOpenChange={setCreateOpen}>
                 <DialogContent className="sm:max-w-[500px]">
@@ -363,24 +562,67 @@ const Equipe = () => {
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Colaborador</TableHead>
-                    <TableHead>Cargo</TableHead>
+                    <TableHead 
+                      className="cursor-pointer hover:bg-muted/50 select-none"
+                      onClick={() => toggleSort("nome")}
+                    >
+                      <div className="flex items-center gap-2">
+                        Colaborador
+                        {sortBy === "nome" && (
+                          <ArrowUpDown className={`h-4 w-4 ${sortOrder === "desc" ? "rotate-180" : ""}`} />
+                        )}
+                      </div>
+                    </TableHead>
+                    <TableHead 
+                      className="cursor-pointer hover:bg-muted/50 select-none"
+                      onClick={() => toggleSort("cargo")}
+                    >
+                      <div className="flex items-center gap-2">
+                        Cargo
+                        {sortBy === "cargo" && (
+                          <ArrowUpDown className={`h-4 w-4 ${sortOrder === "desc" ? "rotate-180" : ""}`} />
+                        )}
+                      </div>
+                    </TableHead>
                     <TableHead>Jornada</TableHead>
                     <TableHead>Status</TableHead>
-                    <TableHead>Último Registro</TableHead>
-                    <TableHead>Total de Registros</TableHead>
+                    <TableHead 
+                      className="cursor-pointer hover:bg-muted/50 select-none"
+                      onClick={() => toggleSort("ultimo-registro")}
+                    >
+                      <div className="flex items-center gap-2">
+                        Último Registro
+                        {sortBy === "ultimo-registro" && (
+                          <ArrowUpDown className={`h-4 w-4 ${sortOrder === "desc" ? "rotate-180" : ""}`} />
+                        )}
+                      </div>
+                    </TableHead>
+                    <TableHead 
+                      className="cursor-pointer hover:bg-muted/50 select-none text-center"
+                      onClick={() => toggleSort("total-pontos")}
+                    >
+                      <div className="flex items-center justify-center gap-2">
+                        Total de Registros
+                        {sortBy === "total-pontos" && (
+                          <ArrowUpDown className={`h-4 w-4 ${sortOrder === "desc" ? "rotate-180" : ""}`} />
+                        )}
+                      </div>
+                    </TableHead>
                     <TableHead>Admin</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {profiles.length === 0 ? (
+                  {filteredProfiles.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={6} className="text-center text-muted-foreground">
-                        Nenhum colaborador encontrado
+                      <TableCell colSpan={7} className="text-center text-muted-foreground py-8">
+                        {profiles.length === 0 
+                          ? "Nenhum colaborador encontrado" 
+                          : "Nenhum colaborador corresponde aos filtros aplicados"
+                        }
                       </TableCell>
                     </TableRow>
                   ) : (
-                    profiles.map((profile) => {
+                    filteredProfiles.map((profile) => {
                       const status = getStatusUsuario(profile.id);
                       const ultimoPonto = getUltimoPonto(profile.id);
                       const totalPontos = pontosHoje[profile.id]?.length || 0;
