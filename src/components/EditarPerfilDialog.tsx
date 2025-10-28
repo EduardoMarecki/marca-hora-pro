@@ -35,6 +35,25 @@ export const EditarPerfilDialog = ({ open, onOpenChange, user }: EditarPerfilDia
   const [themePreference, setThemePreference] = useState<'system'|'light'|'dark'>("system");
   const [exigirSelfie, setExigirSelfie] = useState<boolean>(false);
 
+  // Validação em formato 24h HH:mm e coerência entre campos
+  const isValidHHmm = (v: string) => /^([01]\d|2[0-3]):[0-5]\d$/.test(v);
+  const ensureValidTimes = () => {
+    if (!isValidHHmm(horarioEntrada) || !isValidHHmm(horarioSaidaAlmoco) || !isValidHHmm(horarioVoltaAlmoco) || !isValidHHmm(horarioSaidaFinal)) {
+      toast.error("Use o formato 24h HH:mm em todos os campos (ex.: 08:30, 12:00, 13:30, 18:00)");
+      return false;
+    }
+    const toSec = (s: string) => { const [h,m] = s.split(":").map(Number); return h*3600+m*60; };
+    const entradaSec = toSec(horarioEntrada);
+    const almocoIniSec = toSec(horarioSaidaAlmoco);
+    const almocoFimSec = toSec(horarioVoltaAlmoco);
+    const saidaSec = toSec(horarioSaidaFinal);
+    if (almocoFimSec <= almocoIniSec) { toast.error("A volta do almoço deve ser após a saída para almoço"); return false; }
+    // Aceitar jornada que cruza meia-noite (ex.: entrada 22:00, saída 06:00)
+    const gross = (saidaSec - entradaSec + 24*3600) % (24*3600);
+    if (gross <= 0) { toast.error("Saída Final deve ser após a Entrada (considerando 24h)"); return false; }
+    return true;
+  };
+
   useEffect(() => {
     if (open && user) {
       loadProfile();
@@ -108,8 +127,8 @@ export const EditarPerfilDialog = ({ open, onOpenChange, user }: EditarPerfilDia
         })
         .eq("id", user.id);
 
-      // Fallback: se a coluna não existir no ambiente (erro 42703/column does not exist), tenta sem theme_preference
-      if (error && (error.code === '42703' || (error.message && (error.message.toLowerCase().includes('theme_preference') || error.message.toLowerCase().includes('exigir_selfie'))))) {
+      // Fallback #1: se a coluna de preferências não existir no ambiente (erro 42703/column does not exist), tenta sem theme_preference/exigir_selfie
+      if (error && (error.code === '42703' || (error.message && (error.message.toLowerCase().includes('theme_preference') || error.message.toLowerCase().includes('exigir_selfie')))))) {
         const retry = await supabase
           .from("profiles")
           .update({
@@ -126,6 +145,25 @@ export const EditarPerfilDialog = ({ open, onOpenChange, user }: EditarPerfilDia
         error = retry.error;
         if (!retry.error) {
           toast.warning("Algumas preferências (tema/selfie) não foram salvas (execute as migrations em produção). Perfil atualizado mesmo assim.");
+        }
+      }
+
+      // Fallback #2: se o ambiente não tiver colunas de almoço ainda, tenta salvar sem 'horario_saida_almoco' e 'horario_volta_almoco'
+      if (error && (error.code === '42703' || (error.message && (error.message.toLowerCase().includes('horario_saida_almoco') || error.message.toLowerCase().includes('horario_volta_almoco')))))) {
+        const retry2 = await supabase
+          .from("profiles")
+          .update({
+            nome,
+            cargo,
+            empresa_id: empresaId || null,
+            tipo_jornada: tipoJornada,
+            horario_entrada: horarioEntrada,
+            horario_saida_final: horarioSaidaFinal,
+          })
+          .eq("id", user.id);
+        error = retry2.error;
+        if (!retry2.error) {
+          toast.warning("Campos de almoço não existem na base atual. Salvei Entrada e Saída Final. Aplique as migrations para salvar os de almoço.");
         }
       }
 
@@ -308,20 +346,3 @@ export const EditarPerfilDialog = ({ open, onOpenChange, user }: EditarPerfilDia
     </Dialog>
   );
 };
-  const isValidHHmm = (v: string) => /^([01]\d|2[0-3]):[0-5]\d$/.test(v);
-  const ensureValidTimes = () => {
-    if (!isValidHHmm(horarioEntrada) || !isValidHHmm(horarioSaidaAlmoco) || !isValidHHmm(horarioVoltaAlmoco) || !isValidHHmm(horarioSaidaFinal)) {
-      toast.error("Use o formato 24h HH:mm em todos os campos (ex.: 08:30, 12:00, 13:30, 18:00)");
-      return false;
-    }
-    const toSec = (s: string) => { const [h,m] = s.split(":").map(Number); return h*3600+m*60; };
-    const entradaSec = toSec(horarioEntrada);
-    const almocoIniSec = toSec(horarioSaidaAlmoco);
-    const almocoFimSec = toSec(horarioVoltaAlmoco);
-    const saidaSec = toSec(horarioSaidaFinal);
-    if (almocoFimSec <= almocoIniSec) { toast.error("A volta do almoço deve ser após a saída para almoço"); return false; }
-    // Aceitar jornada que cruza meia-noite (ex.: entrada 22:00, saída 06:00)
-    const gross = (saidaSec - entradaSec + 24*3600) % (24*3600);
-    if (gross <= 0) { toast.error("Saída Final deve ser após a Entrada (considerando 24h)"); return false; }
-    return true;
-  };
