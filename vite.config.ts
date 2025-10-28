@@ -16,7 +16,9 @@ export default defineConfig(({ mode }) => ({
       registerType: "autoUpdate",
       injectRegister: "auto",
       workbox: {
-        globPatterns: ["**/*.{js,css,html,ico,png,svg}"]
+        globPatterns: ["**/*.{js,css,html,ico,png,svg}"],
+        // Alguns bundles podem exceder 2 MiB; aumentamos o limite para evitar falha no build do Pages
+        maximumFileSizeToCacheInBytes: 5 * 1024 * 1024
       },
       devOptions: {
         enabled: true,
@@ -31,8 +33,9 @@ export default defineConfig(({ mode }) => ({
         name: "PontoFácil",
         short_name: "PontoFácil",
         description: "Sistema de Controle de Ponto",
-        start_url: "/",
-        scope: "/",
+        // Use caminhos relativos para funcionar tanto em dev quanto em GitHub Pages (project pages)
+        start_url: ".",
+        scope: ".",
         display: "standalone",
         lang: "pt-BR",
         background_color: "#ffffff",
