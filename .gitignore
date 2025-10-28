@@ -12,6 +12,9 @@ dist
 dist-ssr
 *.local
 
+# PWA dev build output
+dev-dist/
+
 # Environment and local dev caches
 .env
 supabase/.temp/
