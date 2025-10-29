@@ -678,9 +678,9 @@ const Historico = () => {
               <Button variant="secondary" size="sm" onClick={() => setPreset("7d")}>Últimos 7 dias</Button>
               <Button variant="secondary" size="sm" onClick={() => setPreset("30d")}>Últimos 30 dias</Button>
               <Button variant="ghost" size="sm" onClick={() => { setDataInicio(""); setDataFim(""); }}>Limpar datas</Button>
-              <div className="ml-auto flex gap-2">
-                <Button variant="outline" size="sm" onClick={exportCSV}>Exportar CSV</Button>
-                <Button variant="outline" size="sm" onClick={exportPDF}>Exportar PDF</Button>
+              <div className="ml-0 sm:ml-auto flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
+                <Button className="w-full sm:w-auto" variant="outline" size="sm" onClick={exportCSV}>Exportar CSV</Button>
+                <Button className="w-full sm:w-auto" variant="outline" size="sm" onClick={exportPDF}>Exportar PDF</Button>
               </div>
             </div>
 
@@ -710,8 +710,8 @@ const Historico = () => {
               </div>
             </div>
 
-            <div className="rounded-md border">
-              <Table>
+            <div className="rounded-md border overflow-x-auto">
+              <Table className="min-w-[680px]">
                 <TableHeader>
                   <TableRow>
                     <TableHead className="cursor-pointer" onClick={() => { setSortBy("horario"); setSortDir(sortDir === "asc" ? "desc" : "asc"); }}>
@@ -754,14 +754,14 @@ const Historico = () => {
                         {isAdmin && (
                           <TableCell>
                             <div>
-                              <p className="font-medium">{ponto.profiles?.nome}</p>
-                              <p className="text-xs text-muted-foreground">
+                              <p className="font-medium truncate max-w-[160px] sm:max-w-none" title={ponto.profiles?.nome || ""}>{ponto.profiles?.nome}</p>
+                              <p className="text-xs text-muted-foreground truncate max-w-[200px] sm:max-w-none" title={ponto.profiles?.email || ""}>
                                 {ponto.profiles?.email}
                               </p>
                             </div>
                           </TableCell>
                         )}
-                        <TableCell className="text-sm text-muted-foreground">
+                        <TableCell className="text-sm text-muted-foreground whitespace-nowrap overflow-hidden text-ellipsis truncate max-w-[200px] sm:max-w-none" title={ponto.localizacao || "Não disponível"}>
                           {ponto.localizacao || "Não disponível"}
                         </TableCell>
                       </TableRow>
@@ -772,18 +772,20 @@ const Historico = () => {
             </div>
 
             {/* Paginação */}
-            <div className="flex items-center justify-between mt-4">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 mt-4">
               <div className="text-sm text-muted-foreground">
                 Página {page} de {Math.max(1, Math.ceil(totalCount / pageSize))} • {totalCount} registros
               </div>
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 w-full sm:w-auto">
                 <Button
+                  className="w-full sm:w-auto"
                   variant="outline"
                   size="sm"
                   onClick={() => setPage((p) => Math.max(1, p - 1))}
                   disabled={page <= 1}
                 >Anterior</Button>
                 <Button
+                  className="w-full sm:w-auto"
                   variant="outline"
                   size="sm"
                   onClick={() => setPage((p) => (p < Math.ceil(totalCount / pageSize) ? p + 1 : p))}
