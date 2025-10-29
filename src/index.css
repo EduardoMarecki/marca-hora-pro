@@ -105,6 +105,11 @@ All colors MUST be HSL.
     -moz-osx-font-smoothing: grayscale;
   }
 
+  /* Rolagem suave global para navegação por âncoras */
+  html {
+    scroll-behavior: smooth;
+  }
+
   /* Mobile optimizations */
   @media (max-width: 768px) {
     html {
