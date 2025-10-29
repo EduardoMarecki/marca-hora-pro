@@ -97,6 +97,8 @@ type PontoHoje = {
   type DocItem = { name: string; created_at?: string; updated_at?: string; last_accessed_at?: string; size?: number };
   const [docs, setDocs] = useState<DocItem[]>([]);
   const [docsLoading, setDocsLoading] = useState<boolean>(false);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [previewName, setPreviewName] = useState<string | null>(null);
 
   const loadDocumentos = async () => {
     if (!selectedProfileId) return;
@@ -152,6 +154,26 @@ type PontoHoje = {
     } catch (e: any) {
       console.error(e);
       toast.error(e?.message || "Falha ao excluir o arquivo");
+    }
+  };
+
+  const previewDocumento = async (name: string) => {
+    if (!selectedProfileId) return;
+    try {
+      const { data, error } = await supabase.storage
+        .from("documentos")
+        .createSignedUrl(`${selectedProfileId}/${name}`, 60 * 60);
+      if (error) throw error;
+      const url = (data as any)?.signedUrl;
+      if (url) {
+        setPreviewUrl(url);
+        setPreviewName(name);
+      } else {
+        toast.error("Não foi possível obter o link de visualização");
+      }
+    } catch (e: any) {
+      console.error(e);
+      toast.error(e?.message || "Falha ao preparar visualização");
     }
   };
 
@@ -1623,11 +1645,24 @@ type PontoHoje = {
                               )}
                             </div>
                             <div className="flex gap-2">
+                              <Button size="sm" onClick={() => previewDocumento(d.name)}>Visualizar</Button>
                               <Button size="sm" variant="outline" onClick={() => downloadDocumento(d.name)}>Baixar</Button>
                               <Button size="sm" variant="destructive" onClick={() => deleteDocumento(d.name)}>Excluir</Button>
                             </div>
                           </div>
                         ))}
+                      </div>
+                    )}
+                    {previewUrl && (
+                      <div className="space-y-2">
+                        <div className="flex items-center justify-between">
+                          <p className="text-sm">Visualizando: {previewName}</p>
+                          <Button variant="outline" onClick={() => { setPreviewUrl(null); setPreviewName(null); }}>Fechar visualização</Button>
+                        </div>
+                        {/* Para PDFs e imagens, iframe/obj é suficiente; outros tipos podem baixar */}
+                        <div className="border rounded-md overflow-hidden" style={{ height: 500 }}>
+                          <iframe src={previewUrl} title={previewName || "preview"} className="w-full h-full" />
+                        </div>
                       </div>
                     )}
                     <div className="flex justify-end">
