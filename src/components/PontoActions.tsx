@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { LogIn, LogOut, Coffee, PlayCircle } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { SelfieCapture } from "./SelfieCapture";
 
 type Ponto = {
   id: string;
@@ -29,6 +30,8 @@ export const PontoActions = ({ pontos, onRegistrar }: PontoActionsProps) => {
 
   const [loading, setLoading] = useState<string | null>(null);
   const [exigirSelfie, setExigirSelfie] = useState<boolean>(false);
+  const [showSelfieCapture, setShowSelfieCapture] = useState<boolean>(false);
+  const [pendingTipo, setPendingTipo] = useState<string | null>(null);
 
   useEffect(() => {
     let active = true;
@@ -51,12 +54,13 @@ export const PontoActions = ({ pontos, onRegistrar }: PontoActionsProps) => {
     return () => { active = false };
   }, []);
 
-  const fileInputId = "ponto-selfie-input";
-
   const uploadSelfie = async (file: File): Promise<string | undefined> => {
     try {
       const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return undefined;
+      if (!user) {
+        toast.error('Sua sessão expirou. Faça login novamente.');
+        return undefined;
+      }
       const ext = (file.name.split('.').pop() || 'jpg').toLowerCase();
       const path = `${user.id}/${Date.now()}.${ext}`;
       const { error: upErr } = await supabase.storage.from('selfies').upload(path, file, { upsert: false, contentType: file.type });
@@ -71,33 +75,39 @@ export const PontoActions = ({ pontos, onRegistrar }: PontoActionsProps) => {
   };
 
   const handleRegistrar = async (tipo: string) => {
-    setLoading(tipo);
-    try {
-      let selfieUrl: string | undefined;
-      if (exigirSelfie) {
-        const input = document.getElementById(fileInputId) as HTMLInputElement | null;
-        if (!input) {
-          toast.error('Não foi possível abrir a câmera');
-        } else {
-          await new Promise<void>((resolve) => {
-            const onChange = async () => {
-              input.removeEventListener('change', onChange);
-              const file = input.files && input.files[0];
-              input.value = '';
-              if (file) {
-                selfieUrl = await uploadSelfie(file);
-              }
-              resolve();
-            };
-            input.addEventListener('change', onChange, { once: true });
-            input.click();
-          });
-        }
+    if (exigirSelfie) {
+      // Se exige selfie, abre o dialog de captura
+      setPendingTipo(tipo);
+      setShowSelfieCapture(true);
+    } else {
+      // Se não exige selfie, registra diretamente
+      setLoading(tipo);
+      try {
+        onRegistrar(tipo);
+      } finally {
+        setLoading(null);
       }
-      onRegistrar(tipo, selfieUrl);
+    }
+  };
+
+  const handleSelfieCapture = async (file: File) => {
+    if (!pendingTipo) return;
+    
+    setLoading(pendingTipo);
+    setShowSelfieCapture(false);
+    
+    try {
+      const selfieUrl = await uploadSelfie(file);
+      onRegistrar(pendingTipo, selfieUrl);
     } finally {
       setLoading(null);
+      setPendingTipo(null);
     }
+  };
+
+  const handleSelfieCancel = () => {
+    setShowSelfieCapture(false);
+    setPendingTipo(null);
   };
 
   return (
@@ -109,7 +119,6 @@ export const PontoActions = ({ pontos, onRegistrar }: PontoActionsProps) => {
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-2 sm:space-y-3">
-        <input id={fileInputId} type="file" accept="image/*" capture="environment" className="hidden" />
         <Button
           onClick={() => handleRegistrar("entrada")}
           disabled={!canRegisterEntrada}
@@ -151,6 +160,13 @@ export const PontoActions = ({ pontos, onRegistrar }: PontoActionsProps) => {
           <LogOut className="mr-2 h-4 w-4 sm:h-5 sm:w-5" />
           Registrar Saída
         </Button>
+
+        {/* Dialog de captura de selfie */}
+        <SelfieCapture
+          isOpen={showSelfieCapture}
+          onCapture={handleSelfieCapture}
+          onCancel={handleSelfieCancel}
+        />
       </CardContent>
     </Card>
   );

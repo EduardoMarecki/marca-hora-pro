@@ -20,8 +20,8 @@ export const supabase = createClient<Database>(SUPABASE_URL, SUPABASE_PUBLISHABL
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 10000);
       
-      return fetch(...args, { 
-        signal: controller.signal,
+      return fetch(args[0], { ...args[1], signal: controller.signal,
+        // (duplicate signal property removed)
         // Adiciona cabeçalhos para evitar cache
         headers: {
           'Cache-Control': 'no-cache, no-store, must-revalidate',

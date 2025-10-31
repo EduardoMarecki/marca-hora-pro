@@ -1,45 +1,21 @@
 import { useEffect } from "react";
-import { supabase } from "@/integrations/supabase/client";
 import { applyTheme } from "@/lib/theme";
 
-// Componente leve que aplica o tema do usuário autenticado (ou 'system' se não autenticado)
+// Versão genérica: aplica o tema preferido salvo em localStorage, ou 'system' por padrão
 export const ThemeLoader = () => {
   useEffect(() => {
-    let mounted = true;
+    const storedPref = localStorage.getItem("theme_preference");
+    const pref = storedPref === "light" || storedPref === "dark" ? storedPref : "system";
+    applyTheme(pref);
 
-    const applyFromProfile = async () => {
-      try {
-        const { data: { user } } = await supabase.auth.getUser();
-        if (!user?.id) {
-          applyTheme('system');
-          return;
-        }
-        const { data } = await supabase
-          .from('profiles')
-          .select('theme_preference')
-          .eq('id', user.id)
-          .maybeSingle();
-
-        if (!mounted) return;
-        const pref = (data as any)?.theme_preference === 'light' || (data as any)?.theme_preference === 'dark'
-          ? (data as any).theme_preference
-          : 'system';
-        applyTheme(pref);
-      } catch {
-        applyTheme('system');
+    const onStorage = (e: StorageEvent) => {
+      if (e.key === "theme_preference") {
+        const v = e.newValue === "light" || e.newValue === "dark" ? e.newValue! : "system";
+        applyTheme(v);
       }
     };
-
-    applyFromProfile();
-
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(() => {
-      applyFromProfile();
-    });
-
-    return () => {
-      mounted = false;
-      subscription.unsubscribe();
-    };
+    window.addEventListener("storage", onStorage);
+    return () => window.removeEventListener("storage", onStorage);
   }, []);
 
   return null;
