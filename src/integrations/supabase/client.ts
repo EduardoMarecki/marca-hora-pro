@@ -13,5 +13,29 @@ export const supabase = createClient<Database>(SUPABASE_URL, SUPABASE_PUBLISHABL
     storage: localStorage,
     persistSession: true,
     autoRefreshToken: true,
+  },
+  global: {
+    fetch: (...args) => {
+      // Aumenta o timeout para 10 segundos e adiciona retry
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 10000);
+      
+      return fetch(...args, { 
+        signal: controller.signal,
+        // Adiciona cabeçalhos para evitar cache
+        headers: {
+          'Cache-Control': 'no-cache, no-store, must-revalidate',
+          'Pragma': 'no-cache',
+          'Expires': '0'
+        }
+      }).then(response => {
+        clearTimeout(timeoutId);
+        return response;
+      }).catch(error => {
+        clearTimeout(timeoutId);
+        console.warn('Supabase fetch error:', error);
+        throw error;
+      });
+    }
   }
 });

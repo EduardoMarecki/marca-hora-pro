@@ -5,10 +5,11 @@ import { Button } from "@/components/ui/button";
 import { Clock, LogOut, UserCog, History, Users } from "lucide-react";
 import { EditarPerfilDialog } from "./EditarPerfilDialog";
 import { useUserRole } from "@/hooks/useUserRole";
+import { useLogout } from "@/hooks/useLogout";
 
 type HeaderProps = {
   user: User | null;
-  onLogout: () => void;
+  onLogout?: () => void; // Tornando opcional para compatibilidade
 };
 
 export const Header = ({ user, onLogout }: HeaderProps) => {
@@ -16,6 +17,16 @@ export const Header = ({ user, onLogout }: HeaderProps) => {
   const navigate = useNavigate();
   const location = useLocation();
   const { isAdmin } = useUserRole(user);
+  const { handleLogout } = useLogout();
+  
+  // Função que usa o callback fornecido ou o hook interno
+  const handleLogoutClick = () => {
+    if (onLogout) {
+      onLogout();
+    } else {
+      handleLogout();
+    }
+  };
 
   return (
     <header className="border-b bg-card/50 backdrop-blur-sm sticky top-0 z-50">
@@ -65,7 +76,7 @@ export const Header = ({ user, onLogout }: HeaderProps) => {
             <UserCog className="h-4 w-4 sm:mr-2" />
             <span className="hidden sm:inline">Perfil</span>
           </Button>
-          <Button variant="outline" onClick={onLogout} size="sm" className="h-8 px-2 sm:px-3">
+          <Button variant="outline" onClick={handleLogoutClick} size="sm" className="h-8 px-2 sm:px-3">
             <LogOut className="h-4 w-4 sm:mr-2" />
             <span className="hidden sm:inline">Sair</span>
           </Button>
